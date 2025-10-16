@@ -1,0 +1,38 @@
+.home-container {
+  max-width: 800px;
+  margin: 6rem auto;
+  padding: 3rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 15px;
+}
+
+.home-title {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.home-subtitle {
+  font-size: 1.2rem;
+  color: #ddd;
+  margin-bottom: 2.5rem;
+  line-height: 1.6;
+}
+
+.cta-button {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 1rem 2.5rem;
+  background-color: #a855f7;
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 8px;
+  transition: transform 0.2s, background-color 0.2s;
+  font-size: 1.1rem;
+}
+
+.cta-button:hover {
+  transform: translateY(-3px);
+  background-color: #9333ea;
+}
