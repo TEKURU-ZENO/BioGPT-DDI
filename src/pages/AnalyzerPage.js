@@ -6,15 +6,15 @@ import './AnalyzerPage.css';
 const API_BASE_URL = ''; // Vercel handles this automatically
 
 function AnalyzerPage() {
-  const = useState('');
-  const = useState('');
+  const [drug1, setDrug1] = useState('');              // ✅ Fixed line 9
+  const [drug2, setDrug2] = useState('');              // ✅ Fixed line 10
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const = useState(null);
-  const = useState('patient');
+  const [result, setResult] = useState(null);          // ✅ Fixed line 13
+  const [activeTab, setActiveTab] = useState('patient'); // ✅ Fixed line 14
 
   const handleAnalyze = async () => {
-    if (!drug1 ||!drug2) {
+    if (!drug1 || !drug2) {
       setError('Please enter both drug names.');
       return;
     }
@@ -63,7 +63,7 @@ function AnalyzerPage() {
             placeholder="Enter Drug 2 (e.g., Aspirin)"
           />
           <button onClick={handleAnalyze} disabled={isLoading}>
-            {isLoading? 'Analyzing...' : 'Analyze Interaction'}
+            {isLoading ? 'Analyzing...' : 'Analyze Interaction'}
           </button>
         </div>
         {error && <p className="error-message">{error}</p>}
@@ -85,12 +85,12 @@ function AnalyzerPage() {
           
           <div className="tabs">
             <button 
-              className={`tab-button ${activeTab === 'patient'? 'active' : ''}`}
+              className={`tab-button ${activeTab === 'patient' ? 'active' : ''}`}
               onClick={() => setActiveTab('patient')}>
               Patient Summary
             </button>
             <button 
-              className={`tab-button ${activeTab === 'professional'? 'active' : ''}`}
+              className={`tab-button ${activeTab === 'professional' ? 'active' : ''}`}
               onClick={() => setActiveTab('professional')}>
               Professional Details
             </button>
