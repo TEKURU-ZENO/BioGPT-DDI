@@ -3,8 +3,8 @@ import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/common/Navbar';
 import HomePage from './pages/HomePage';
 import AnalyzerPage from './pages/AnalyzerPage';
-import AboutProjectPage from './pages/AboutProjectPage';
-import AboutGroupPage from './pages/AboutGroupPage';
+import AboutProjectPage from './pages/AboutPages';
+import AboutGroupPage from './pages/AboutGroup';
 import './App.css';
 
 function App() {
@@ -23,5 +23,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;
