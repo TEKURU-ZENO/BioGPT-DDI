@@ -4,7 +4,9 @@
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "build" }
+      "config": { 
+        "distDir": "build"
+      }
     },
     {
       "src": "api/index.py",
@@ -15,6 +17,26 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/index.py"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/favicon.ico"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/manifest.json"
+    },
+    {
+      "src": "/robots.txt",
+      "dest": "/robots.txt"
+    },
+    {
+      "src": "/(.*\\.(?:js|css|png|jpg|jpeg|gif|svg|json|ico|woff|woff2|ttf|eot))",
+      "dest": "/$1"
     },
     {
       "src": "/(.*)",
