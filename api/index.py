@@ -40,98 +40,185 @@ class PDFRequest(BaseModel):
     report_type: str  # "patient" or "professional"
     prediction_data: dict
 
-async def query_huggingface(model_id: str, inputs: str):
+async def query_huggingface(model_id: str, inputs: dict, use_token: bool = True):
     """Query Hugging Face Inference API"""
     API_URL = f"https://api-inference.huggingface.co/models/{model_id}"
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"} if HF_API_TOKEN else {}
+    headers = {}
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(API_URL, headers=headers, json={"inputs": inputs})
-        return response.json()
-
-async def generate_detailed_report(drug1: str, drug2: str, report_type: str, interaction_type: str) -> str:
-    """Generate detailed reports using BioGPT"""
+    if use_token and HF_API_TOKEN:
+        headers["Authorization"] = f"Bearer {HF_API_TOKEN}"
     
-    if report_type == "patient":
-        prompt = f"""Explain in simple, patient-friendly language what happens when {drug1} and {drug2} are taken together.
-        
-The interaction is classified as: {interaction_type}
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            response = await client.post(API_URL, headers=headers, json=inputs)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            print(f"HF API Error for {model_id}: {str(e)}")
+            return None
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            return None
 
-Include:
-1. What this interaction means in everyday terms
-2. How these drugs might affect each other in the body
-3. What symptoms or changes to watch for
-4. Why this interaction happens
-5. What patients should discuss with their healthcare provider
-
-Use simple language without medical jargon. Be thorough but easy to understand."""
-        
-    else:  # professional
-        prompt = f"""Provide a detailed clinical analysis of the drug-drug interaction between {drug1} and {drug2}.
-
-The interaction is classified as: {interaction_type}
-
-Include:
-1. Detailed pharmacokinetic and pharmacodynamic mechanisms
-2. Clinical significance and potential outcomes
-3. Specific monitoring parameters and frequency
-4. Evidence-based management strategies
-5. Risk stratification and dose adjustment recommendations
-6. Alternative therapy considerations
-
-Provide a comprehensive clinical perspective suitable for healthcare professionals."""
+async def classify_interaction(drug1: str, drug2: str):
+    """Use BioBERT to classify the drug interaction"""
     
-    try:
-        # Query BioGPT for detailed generation
-        result = await query_huggingface(BIOGPT_MODEL, prompt)
+    text_input = f"{drug1} and {drug2}"
+    
+    result = await query_huggingface(
+        BIOBERT_MODEL,
+        {"inputs": text_input}
+    )
+    
+    if result and isinstance(result, list) and len(result) > 0:
+        prediction = result[0]
+        if isinstance(prediction, list):
+            prediction = prediction[0]
         
-        # Extract generated text
-        if isinstance(result, list) and len(result) > 0:
-            return result[0].get('generated_text', prompt)
-        elif isinstance(result, dict):
-            return result.get('generated_text', prompt)
+        interaction_type = prediction.get('label', 'EFFECT')
+        confidence = prediction.get('score', 0.5)
+        
+        # Map confidence to severity
+        if interaction_type in ['MECHANISM', 'EFFECT'] and confidence > 0.8:
+            severity = "Major"
+        elif confidence > 0.6:
+            severity = "Moderate"
         else:
-            return prompt  # Fallback to prompt if generation fails
+            severity = "Minor"
             
-    except Exception as e:
-        print(f"Error generating detailed report: {str(e)}")
-        return prompt  # Fallback
+        print(f"[Classification] Type: {interaction_type}, Confidence: {confidence:.2f}, Severity: {severity}")
+        return interaction_type, severity
+    
+    print("[Classification] Using fallback values")
+    return "EFFECT", "Moderate"
+
+async def generate_patient_explanation(drug1: str, drug2: str, interaction_type: str, severity: str):
+    """Generate unique patient-friendly explanation using BioGPT"""
+    
+    prompt = f"""Question: What happens when a patient takes {drug1} and {drug2} together?
+
+Answer: When taking {drug1} with {drug2},"""
+    
+    result = await query_huggingface(
+        BIOGPT_MODEL,
+        {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 150,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "do_sample": True,
+                "return_full_text": False
+            }
+        }
+    )
+    
+    if result and isinstance(result, list) and len(result) > 0:
+        generated_text = result[0].get('generated_text', '')
+        
+        if generated_text:
+            generated_text = generated_text.replace(prompt, '').strip()
+            
+            if not generated_text.startswith("When taking"):
+                generated_text = f"When taking {drug1} with {drug2}, {generated_text}"
+            
+            print(f"[Patient Report] Generated {len(generated_text)} characters")
+            return generated_text
+    
+    print("[Patient Report] Using fallback")
+    return f"Taking {drug1} with {drug2} may cause a {severity.lower()}-severity interaction. This means the drugs may affect how each other works in your body. The interaction is classified as {interaction_type} type, which may involve changes in drug absorption, metabolism, or effects. Please consult your healthcare provider for personalized guidance on taking these medications together safely."
+
+async def generate_professional_explanation(drug1: str, drug2: str, interaction_type: str, severity: str):
+    """Generate unique professional explanation using BioGPT"""
+    
+    prompt = f"""Clinical drug interaction assessment for {drug1} and {drug2}:
+
+Mechanism: The interaction"""
+    
+    result = await query_huggingface(
+        BIOGPT_MODEL,
+        {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 200,
+                "temperature": 0.6,
+                "top_p": 0.85,
+                "do_sample": True,
+                "return_full_text": False
+            }
+        }
+    )
+    
+    if result and isinstance(result, list) and len(result) > 0:
+        generated_text = result[0].get('generated_text', '')
+        
+        if generated_text:
+            generated_text = generated_text.replace(prompt, '').strip()
+            
+            if not generated_text.startswith("The"):
+                generated_text = f"The interaction {generated_text}"
+            
+            clinical_summary = f"The concurrent use of {drug1} and {drug2} presents a {severity.lower()}-severity drug-drug interaction classified as {interaction_type}. {generated_text}"
+            
+            print(f"[Professional Report] Generated {len(clinical_summary)} characters")
+            return clinical_summary
+    
+    print("[Professional Report] Using fallback")
+    return f"The concurrent use of {drug1} and {drug2} presents a {severity.lower()}-severity interaction classified as {interaction_type}. This interaction may involve pharmacokinetic alterations (affecting absorption, distribution, metabolism, or excretion) or pharmacodynamic effects (affecting drug receptor interactions or physiological responses). Clinical monitoring, potential dose adjustment, and assessment of therapeutic alternatives are recommended. Implement enhanced monitoring protocols and document risk-benefit assessment in patient record."
 
 @app.get("/")
 def read_root():
-    return {"message": "BioGPT-DI API is running", "status": "healthy"}
+    return {
+        "message": "BioGPT-DI API is running",
+        "status": "healthy",
+        "version": "1.0.0"
+    }
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "hf_token_configured": bool(HF_API_TOKEN),
+        "models": {
+            "classification": BIOBERT_MODEL,
+            "generation": BIOGPT_MODEL
+        }
+    }
 
 @app.post("/api/predict", response_model=PredictionResponse)
 async def predict_interaction(request: PredictionRequest):
     """
-    Predict drug-drug interaction
+    Predict drug-drug interaction with AI-generated unique explanations
     """
     try:
-        drug1 = request.drug1.strip()
-        drug2 = request.drug2.strip()
+        drug1 = request.drug1.strip().title()
+        drug2 = request.drug2.strip().title()
         
         if not drug1 or not drug2:
             raise HTTPException(status_code=400, detail="Both drug names are required")
         
-        # Step 1: Predict interaction type with BioBERT
-        input_text = f"{drug1} and {drug2} interaction"
+        print(f"\n{'='*60}")
+        print(f"[ANALYSIS START] {drug1} + {drug2}")
+        print(f"{'='*60}")
         
-        # Mock classification for now (replace with actual HF API call)
-        interaction_type = "EFFECT"
-        severity = "Moderate"
+        # Step 1: Classify interaction
+        print("[Step 1/3] Classifying interaction with BioBERT...")
+        interaction_type, severity = await classify_interaction(drug1, drug2)
         
-        # Step 2: Generate detailed reports
-        professional_report = await generate_detailed_report(
-            drug1, drug2, "professional", interaction_type
+        # Step 2: Generate patient explanation
+        print("[Step 2/3] Generating patient explanation with BioGPT...")
+        patient_report = await generate_patient_explanation(
+            drug1, drug2, interaction_type, severity
         )
         
-        patient_report = await generate_detailed_report(
-            drug1, drug2, "patient", interaction_type
+        # Step 3: Generate professional explanation
+        print("[Step 3/3] Generating professional explanation with BioGPT...")
+        professional_report = await generate_professional_explanation(
+            drug1, drug2, interaction_type, severity
         )
+        
+        print(f"[ANALYSIS COMPLETE] Type: {interaction_type}, Severity: {severity}")
+        print(f"{'='*60}\n")
         
         return PredictionResponse(
             prediction=interaction_type,
@@ -140,9 +227,16 @@ async def predict_interaction(request: PredictionRequest):
             professional_report=professional_report
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        print(f"[ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="Analysis failed. The AI models may be loading (cold start - typically takes 30-60 seconds on first request). Please try again in a moment."
+        )
 
 @app.post("/api/generate-pdf")
 async def generate_pdf_report(request: PDFRequest):
@@ -157,9 +251,11 @@ async def generate_pdf_report(request: PDFRequest):
         
         if report_type not in ["patient", "professional"]:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail="report_type must be 'patient' or 'professional'"
             )
+        
+        print(f"[PDF Generation] Type: {report_type}, Drugs: {drug1} + {drug2}")
         
         # Generate PDF based on report type
         if report_type == "patient":
@@ -173,6 +269,8 @@ async def generate_pdf_report(request: PDFRequest):
             )
             filename = f"DDI_Report_Professional_{drug1}_{drug2}.pdf"
         
+        print(f"[PDF Generated] {filename}")
+        
         # Return PDF as streaming response
         return StreamingResponse(
             pdf_buffer,
@@ -183,5 +281,10 @@ async def generate_pdf_report(request: PDFRequest):
         )
         
     except Exception as e:
-        print(f"Error generating PDF: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+        print(f"[PDF Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"PDF generation failed: {str(e)}"
+        )
