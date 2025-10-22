@@ -21,8 +21,7 @@ pdf_generator = DDIReportGenerator()
 
 # Hugging Face configuration
 HF_API_TOKEN = os.getenv("HF_API_TOKEN", "")
-BIOBERT_MODEL = "tekuru/biogpt-ddi-focal"
-BIOGPT_MODEL = "microsoft/biogpt"
+BIOGPT_MODEL = "microsoft/BioGPT-Large"
 
 class PredictionRequest(BaseModel):
     drug1: str
@@ -61,35 +60,127 @@ async def query_huggingface(model_id: str, inputs: dict, use_token: bool = True)
             return None
 
 async def classify_interaction(drug1: str, drug2: str):
-    """Use BioBERT to classify the drug interaction"""
+    """Classify interaction severity based on known drug interactions"""
     
-    text_input = f"{drug1} and {drug2}"
+    drug1_lower = drug1.lower()
+    drug2_lower = drug2.lower()
     
-    result = await query_huggingface(
-        BIOBERT_MODEL,
-        {"inputs": text_input}
-    )
+    print(f"[Classification] Analyzing: {drug1} + {drug2}")
     
-    if result and isinstance(result, list) and len(result) > 0:
-        prediction = result[0]
-        if isinstance(prediction, list):
-            prediction = prediction[0]
+    # Major severity interactions (life-threatening or requires immediate intervention)
+    major_pairs = [
+        # Bleeding risks
+        ("warfarin", "aspirin"), ("warfarin", "ibuprofen"), ("warfarin", "naproxen"),
+        ("warfarin", "clopidogrel"), ("apixaban", "aspirin"), ("rivaroxaban", "ibuprofen"),
+        ("dabigatran", "aspirin"), ("edoxaban", "naproxen"),
         
-        interaction_type = prediction.get('label', 'EFFECT')
-        confidence = prediction.get('score', 0.5)
+        # Cardiovascular
+        ("sildenafil", "nitroglycerin"), ("viagra", "nitroglycerin"), ("tadalafil", "isosorbide"),
+        ("vardenafil", "nitroglycerin"), ("sildenafil", "isosorbide"),
+        ("metoprolol", "verapamil"), ("atenolol", "diltiazem"), ("propranolol", "diltiazem"),
+        ("carvedilol", "verapamil"), ("bisoprolol", "verapamil"),
         
-        # Map confidence to severity
-        if interaction_type in ['MECHANISM', 'EFFECT'] and confidence > 0.8:
-            severity = "Major"
-        elif confidence > 0.6:
-            severity = "Moderate"
-        else:
-            severity = "Minor"
-            
-        print(f"[Classification] Type: {interaction_type}, Confidence: {confidence:.2f}, Severity: {severity}")
-        return interaction_type, severity
+        # CNS depression
+        ("diazepam", "morphine"), ("alprazolam", "oxycodone"), ("lorazepam", "fentanyl"),
+        ("clonazepam", "hydrocodone"), ("temazepam", "codeine"), ("zolpidem", "morphine"),
+        
+        # Serotonin syndrome
+        ("fluoxetine", "phenelzine"), ("sertraline", "selegiline"), ("citalopram", "tranylcypromine"),
+        ("paroxetine", "phenelzine"), ("escitalopram", "selegiline"),
+        
+        # Metabolic interactions (Rhabdomyolysis risk)
+        ("simvastatin", "clarithromycin"), ("atorvastatin", "itraconazole"), 
+        ("simvastatin", "erythromycin"), ("lovastatin", "ketoconazole"),
+        ("simvastatin", "gemfibrozil"), ("atorvastatin", "clarithromycin"),
+        
+        # Alcohol interactions
+        ("metronidazole", "alcohol"), ("tinidazole", "alcohol"), ("disulfiram", "alcohol"),
+        ("cefoperazone", "alcohol"), ("ketoconazole", "alcohol"),
+        
+        # QT prolongation
+        ("azithromycin", "amiodarone"), ("erythromycin", "quinidine"), ("clarithromycin", "sotalol"),
+        ("ciprofloxacin", "amiodarone"), ("levofloxacin", "sotalol"),
+        
+        # Immunosuppressants
+        ("tacrolimus", "ketoconazole"), ("cyclosporine", "st john's wort"), 
+        ("tacrolimus", "clarithromycin"), ("cyclosporine", "rifampin"),
+        ("sirolimus", "ketoconazole"), ("everolimus", "itraconazole"),
+        
+        # Methotrexate toxicity
+        ("methotrexate", "ibuprofen"), ("methotrexate", "naproxen"),
+        ("methotrexate", "aspirin"), ("methotrexate", "penicillin"),
+        
+        # Digoxin toxicity
+        ("digoxin", "amiodarone"), ("digoxin", "verapamil"), ("digoxin", "clarithromycin"),
+        ("digoxin", "quinidine"), ("digoxin", "spironolactone"),
+        
+        # Lithium toxicity
+        ("lithium", "hydrochlorothiazide"), ("lithium", "furosemide"), ("lithium", "ibuprofen"),
+        ("lithium", "naproxen"), ("lithium", "lisinopril"), ("lithium", "losartan"),
+        
+        # Hyperkalemia
+        ("lisinopril", "potassium"), ("enalapril", "potassium"), ("ramipril", "spironolactone"),
+        ("losartan", "potassium"), ("valsartan", "spironolactone"),
+        
+        # Lactic acidosis
+        ("metformin", "alcohol"), ("metformin", "contrast"),
+        
+        # Hypoglycemia
+        ("insulin", "alcohol"), ("glipizide", "alcohol"), ("glyburide", "alcohol"),
+    ]
     
-    print("[Classification] Using fallback values")
+    # Check for major interactions
+    for d1, d2 in major_pairs:
+        if (d1 in drug1_lower or drug1_lower in d1) and (d2 in drug2_lower or drug2_lower in d2):
+            print(f"[Classification] ⚠️  MAJOR severity detected")
+            return "EFFECT", "Major"
+        if (d1 in drug2_lower or drug2_lower in d1) and (d2 in drug1_lower or drug1_lower in d2):
+            print(f"[Classification] ⚠️  MAJOR severity detected")
+            return "EFFECT", "Major"
+    
+    # Drug class-based moderate interactions
+    anticoagulants = ["warfarin", "apixaban", "rivaroxaban", "dabigatran", "edoxaban", "heparin", "enoxaparin"]
+    antiplatelets = ["aspirin", "clopidogrel", "ticagrelor", "prasugrel", "dipyridamole"]
+    nsaids = ["ibuprofen", "naproxen", "diclofenac", "celecoxib", "indomethacin", "meloxicam", "ketorolac", "piroxicam"]
+    ssris = ["fluoxetine", "sertraline", "paroxetine", "citalopram", "escitalopram", "fluvoxamine"]
+    statins = ["simvastatin", "atorvastatin", "rosuvastatin", "pravastatin", "lovastatin", "fluvastatin", "pitavastatin"]
+    macrolides = ["erythromycin", "clarithromycin", "azithromycin"]
+    azole_antifungals = ["ketoconazole", "itraconazole", "fluconazole", "voriconazole", "posaconazole"]
+    ace_inhibitors = ["lisinopril", "enalapril", "ramipril", "perindopril", "captopril"]
+    arbs = ["losartan", "valsartan", "irbesartan", "candesartan", "olmesartan"]
+    
+    # Anticoagulant + Antiplatelet = Moderate
+    if any(ac in drug1_lower for ac in anticoagulants) or any(ac in drug2_lower for ac in anticoagulants):
+        if any(ap in drug1_lower or ap in drug2_lower for ap in antiplatelets):
+            print(f"[Classification] MODERATE: Anticoagulant + Antiplatelet")
+            return "EFFECT", "Moderate"
+    
+    # SSRI + NSAID = Moderate (bleeding risk)
+    if any(s in drug1_lower or s in drug2_lower for s in ssris):
+        if any(n in drug1_lower or n in drug2_lower for n in nsaids):
+            print(f"[Classification] MODERATE: SSRI + NSAID (bleeding risk)")
+            return "MECHANISM", "Moderate"
+    
+    # Statin + Macrolide/Azole = Moderate
+    if any(st in drug1_lower or st in drug2_lower for st in statins):
+        if any(m in drug1_lower or m in drug2_lower for m in macrolides + azole_antifungals):
+            print(f"[Classification] MODERATE: Statin + CYP3A4 inhibitor")
+            return "MECHANISM", "Moderate"
+    
+    # ACE-I/ARB + NSAID = Moderate (reduced efficacy, renal risk)
+    if any(ace in drug1_lower or ace in drug2_lower for ace in ace_inhibitors + arbs):
+        if any(n in drug1_lower or n in drug2_lower for n in nsaids):
+            print(f"[Classification] MODERATE: ACE-I/ARB + NSAID")
+            return "MECHANISM", "Moderate"
+    
+    # Minor interactions - just informational
+    minor_classes = anticoagulants + antiplatelets + nsaids + ssris + statins
+    if any(drug in drug1_lower or drug in drug2_lower for drug in minor_classes):
+        print(f"[Classification] MINOR: One or both drugs in monitored class")
+        return "ADVICE", "Minor"
+    
+    # Default classification
+    print(f"[Classification] MODERATE: General potential interaction")
     return "EFFECT", "Moderate"
 
 async def generate_patient_explanation(drug1: str, drug2: str, interaction_type: str, severity: str):
@@ -180,7 +271,7 @@ def health_check():
         "status": "healthy",
         "hf_token_configured": bool(HF_API_TOKEN),
         "models": {
-            "classification": BIOBERT_MODEL,
+            "classification": "rule-based (covering 100+ drug pairs)",
             "generation": BIOGPT_MODEL
         }
     }
@@ -202,7 +293,7 @@ async def predict_interaction(request: PredictionRequest):
         print(f"{'='*60}")
         
         # Step 1: Classify interaction
-        print("[Step 1/3] Classifying interaction with BioBERT...")
+        print("[Step 1/3] Classifying interaction severity...")
         interaction_type, severity = await classify_interaction(drug1, drug2)
         
         # Step 2: Generate patient explanation
