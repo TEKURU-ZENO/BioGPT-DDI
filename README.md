@@ -1,153 +1,120 @@
-# BioGPT-DDI  
-### Biomedical GPT for Drug–Drug Interaction Prediction & Explainable Clinical Reports
+BioGPT-DDI
 
-BioGPT-DDI is a web-based biomedical AI application that predicts **drug–drug interactions (DDIs)** and generates **explainable clinical reports** using a fine-tuned **BioGPT** model.  
-The project focuses on applying large language models to real-world healthcare problems through a simple frontend–backend architecture.
+Biomedical GPT for Drug–Drug Interaction Prediction and Explainable Reports
 
----
+BioGPT-DDI is a biomedical AI project that uses the BioGPT language model to predict drug–drug interactions (DDIs) and generate explainable clinical summaries.
+The project demonstrates how large language models can be applied to healthcare and biomedical text analysis through a simple web-based interface.
 
-## 🚀 Features
+Project Overview
 
-- 🔍 Predicts whether two drugs interact
-- ⚠️ Classifies interaction severity
-- 🧠 Uses BioGPT for biomedical text understanding
-- 📝 Generates explainable, human-readable clinical summaries
-- 💻 Web-based interface for easy interaction
-- ⚡ Lightweight backend API for inference
-
----
-
-## 📁 Project Structure
-
-BioGPT-DDI/
-│
-├── api/ # Backend API (prediction & report generation)
-│ ├── index.js # Main API handler
-│ └── ... # Supporting logic
-│
-├── public/ # Static assets
-│ └── ...
-│
-├── src/ # Frontend source code
-│ ├── components/ # UI components
-│ ├── pages/ # Application pages
-│ ├── App.js # Root component
-│ └── index.js # Entry point
-│
-├── package.json # Dependencies & scripts
-├── vercel.json # Deployment configuration
-├── LICENSE
-└── README.md
-
-yaml
-Copy code
-
----
-
-## 🧠 Project Overview
-
-Drug–drug interactions are a major cause of adverse drug reactions and medical errors.  
-Most existing systems rely on static databases that do not adapt well to new findings in biomedical literature.
+Drug–drug interactions are a major cause of adverse drug reactions and medical complications. Existing systems often rely on static databases that cannot easily adapt to new information.
 
 BioGPT-DDI addresses this problem by:
-- Leveraging **BioGPT**, a transformer model trained on biomedical text
-- Automatically predicting interactions between drug pairs
-- Generating clear, explainable summaries to help users understand the interaction
 
----
+Using a biomedical language model (BioGPT) trained on scientific literature
 
-## 🧰 Tech Stack
+Predicting interactions between two drugs
 
-| Layer | Technology |
-|------|------------|
-| Frontend | JavaScript (React-based UI) |
-| Backend | Node.js API |
-| Language Model | BioGPT |
-| Deployment | Vercel |
-| Language | JavaScript |
+Generating clear, human-readable explanations for the predicted interaction
 
----
+This project is designed as a prototype system for learning and experimentation in biomedical NLP.
 
-## 🔧 Installation & Setup
+Key Features
 
-### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/TEKURU-ZENO/BioGPT-DDI.git
-cd BioGPT-DDI
-2️⃣ Install Dependencies
-bash
-Copy code
-npm install
-3️⃣ Run the Application
-bash
-Copy code
-npm run dev
-4️⃣ Open in Browser
-arduino
-Copy code
-http://localhost:3000
-⚙️ How It Works
-User Input
-The user enters two drug names through the web interface.
+Predicts whether two drugs interact
 
-API Request
+Indicates interaction severity
+
+Generates explainable clinical text using BioGPT
+
+Simple web interface for user input and result display
+
+Lightweight backend API for inference
+
+Project Structure
+
+api/
+Contains backend logic for handling requests, running the BioGPT model, and returning predictions and explanations.
+
+src/
+Frontend source code for the user interface, including pages and UI components.
+
+public/
+Static assets such as images or icons.
+
+package.json
+Project dependencies and scripts.
+
+vercel.json
+Deployment configuration for hosting the application.
+
+Technologies Used
+
+Language Model: BioGPT
+
+Frontend: JavaScript (React-based)
+
+Backend: Node.js API
+
+Deployment: Vercel
+
+How the System Works
+
+The user enters two drug names in the web interface.
+
 The frontend sends the drug pair to the backend API.
 
-BioGPT Inference
-The backend processes the input using the BioGPT model to:
+The backend processes the input using the BioGPT model.
 
-Detect possible interaction
+The model predicts a possible interaction and generates an explanation.
 
-Generate an explainable report
+The result is returned and displayed on the user interface.
 
-Result Display
-The interaction prediction and explanation are shown on the UI.
+Example
 
-🧪 Example
-Input
+Input:
 
-less
-Copy code
-Drug A: Aspirin  
-Drug B: Warfarin
-Output
+Drug 1: Aspirin
+
+Drug 2: Warfarin
+
+Output:
 
 Interaction: Severe
 
 Explanation:
+Aspirin may increase the anticoagulant effect of Warfarin, leading to a higher risk of bleeding.
 
-nginx
-Copy code
-Aspirin may increase the anticoagulant effect of Warfarin, increasing the risk of bleeding...
-📌 Use Cases
-Academic projects in AI & healthcare
+Use Cases
+
+Academic and major projects in AI and healthcare
 
 Biomedical NLP experimentation
 
-Learning how LLMs can be applied to clinical decision support
+Understanding applications of LLMs in clinical decision support
 
-Prototype for future healthcare AI systems
+Prototyping healthcare AI systems
 
-🔮 Future Improvements
-Add support for more drug databases
+Future Enhancements
 
-Improve UI/UX and result visualization
+Support for more drug datasets
 
-Add confidence scores and risk levels
+Improved explanation clarity and formatting
 
-Support multi-drug interaction analysis
+Interaction confidence scoring
 
-Extend to multi-language explanations
+Multi-drug interaction analysis
 
-📄 License
+UI/UX improvements
+
+License
+
 This project is licensed under the MIT License.
 
-🙌 Acknowledgements
+Acknowledgements
+
 BioGPT by Microsoft Research
 
 Biomedical datasets such as DrugBank and TWOSIDES
 
-Open-source NLP and ML communities
-
-📬 Contact
-For questions or suggestions, feel free to reach out or open an issue in the repository.
+Open-source NLP and AI research community
