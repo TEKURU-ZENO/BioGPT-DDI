@@ -1,120 +1,149 @@
-BioGPT-DDI
+<h1 align="center">BioGPT-DDI</h1>
 
-Biomedical GPT for Drug–Drug Interaction Prediction and Explainable Reports
+<p align="center">
+  <b>Biomedical GPT for Drug–Drug Interaction Prediction and Explainable Clinical Reports</b>
+</p>
 
-BioGPT-DDI is a biomedical AI project that uses the BioGPT language model to predict drug–drug interactions (DDIs) and generate explainable clinical summaries.
-The project demonstrates how large language models can be applied to healthcare and biomedical text analysis through a simple web-based interface.
+<p align="center">
+  A biomedical AI system that leverages BioGPT to predict drug–drug interactions
+  and generate clinically meaningful, explainable summaries.
+</p>
 
-Project Overview
+---
 
-Drug–drug interactions are a major cause of adverse drug reactions and medical complications. Existing systems often rely on static databases that cannot easily adapt to new information.
+## 🔬 Project Overview
 
-BioGPT-DDI addresses this problem by:
+**BioGPT-DDI** is a biomedical natural language processing (NLP) project that applies a  
+**domain-specific large language model (BioGPT)** to the task of **drug–drug interaction (DDI) prediction**.
 
-Using a biomedical language model (BioGPT) trained on scientific literature
+Drug–drug interactions are a major cause of adverse drug reactions and clinical complications.
+Most existing systems rely on static databases and predefined rules, which limits their ability
+to adapt to new findings in biomedical literature.
 
-Predicting interactions between two drugs
+This project demonstrates how **biomedical language models** can be used to:
+- understand pharmacological context
+- reason about drug relationships
+- generate human-readable clinical explanations
 
-Generating clear, human-readable explanations for the predicted interaction
+---
 
-This project is designed as a prototype system for learning and experimentation in biomedical NLP.
+## 🧠 What This Project Does
 
-Key Features
+BioGPT-DDI focuses on two core capabilities:
 
-Predicts whether two drugs interact
+### 🔹 Drug–Drug Interaction Prediction
+Given two drug names, the system predicts whether an interaction exists and estimates
+the severity of the interaction using BioGPT’s biomedical language understanding.
 
-Indicates interaction severity
+### 🔹 Explainable Clinical Report Generation
+Instead of returning only a label, the system generates a **natural-language explanation**
+describing the interaction, associated risks, and clinical implications.
 
-Generates explainable clinical text using BioGPT
+This improves interpretability and makes the output more useful for real-world biomedical scenarios.
 
-Simple web interface for user input and result display
+---
 
-Lightweight backend API for inference
+## 🧬 Why BioGPT?
 
-Project Structure
+**BioGPT** is a transformer-based language model trained specifically on large-scale
+biomedical literature. Compared to general-purpose language models, BioGPT is better at:
 
-api/
-Contains backend logic for handling requests, running the BioGPT model, and returning predictions and explanations.
+- understanding biomedical terminology
+- capturing pharmacological relationships
+- generating clinically coherent text
 
-src/
-Frontend source code for the user interface, including pages and UI components.
+Using a domain-trained model significantly improves the quality of both predictions
+and explanations in healthcare-related tasks.
 
-public/
-Static assets such as images or icons.
+---
 
-package.json
-Project dependencies and scripts.
+## 🏗️ Current Architecture
 
-vercel.json
-Deployment configuration for hosting the application.
+This version of the project is implemented as a **simple web-based system**, focusing on
+model integration and explainability rather than distributed or cloud infrastructure.
 
-Technologies Used
+- **Frontend**  
+  A web interface for entering drug names and viewing predictions.
 
-Language Model: BioGPT
+- **Backend API**  
+  Handles inference requests and communicates with the BioGPT model.
 
-Frontend: JavaScript (React-based)
+- **Language Model**  
+  BioGPT is used for both interaction prediction and explanation generation.
 
-Backend: Node.js API
+---
 
-Deployment: Vercel
+## 📁 Project Structure
 
-How the System Works
+- **api/**  
+  Backend logic for handling requests, running the BioGPT model,
+  and returning predictions and explanations.
 
-The user enters two drug names in the web interface.
+- **src/**  
+  Frontend source code including UI components and application pages.
 
-The frontend sends the drug pair to the backend API.
+- **public/**  
+  Static assets such as images or icons.
 
-The backend processes the input using the BioGPT model.
+- **package.json**  
+  Project dependencies and scripts.
 
-The model predicts a possible interaction and generates an explanation.
+- **vercel.json**  
+  Deployment configuration for hosting the application.
 
-The result is returned and displayed on the user interface.
+---
 
-Example
+## ⚙️ How the System Works
 
-Input:
+1. The user enters two drug names through the web interface.  
+2. The frontend sends the drug pair to the backend API.  
+3. The backend processes the input using the BioGPT model.  
+4. The model predicts a possible interaction and generates an explanation.  
+5. The result is returned and displayed on the user interface.
 
-Drug 1: Aspirin
+---
 
-Drug 2: Warfarin
+## 🧪 Example
 
-Output:
+**Input**
+- Drug 1: Aspirin  
+- Drug 2: Warfarin  
 
-Interaction: Severe
+**Output**
+- **Interaction:** Severe  
+- **Explanation:**  
+  Aspirin may enhance the anticoagulant effect of Warfarin, increasing the risk of
+  bleeding and related complications.
 
-Explanation:
-Aspirin may increase the anticoagulant effect of Warfarin, leading to a higher risk of bleeding.
+---
 
-Use Cases
+## 🎯 Use Cases
 
-Academic and major projects in AI and healthcare
+- Academic and major projects in biomedical AI  
+- Biomedical NLP experimentation  
+- Learning how large language models can be applied to healthcare  
+- Prototyping early clinical decision-support systems  
 
-Biomedical NLP experimentation
+---
 
-Understanding applications of LLMs in clinical decision support
+## 🔮 Future Improvements
 
-Prototyping healthcare AI systems
+- Support for additional drug datasets  
+- Improved explanation formatting and readability  
+- Interaction confidence scoring  
+- Multi-drug interaction analysis  
+- UI/UX enhancements  
 
-Future Enhancements
+---
 
-Support for more drug datasets
+## 📄 License
 
-Improved explanation clarity and formatting
+This project is licensed under the **MIT License**.
 
-Interaction confidence scoring
+---
 
-Multi-drug interaction analysis
+## 🙌 Acknowledgements
 
-UI/UX improvements
-
-License
-
-This project is licensed under the MIT License.
-
-Acknowledgements
-
-BioGPT by Microsoft Research
-
-Biomedical datasets such as DrugBank and TWOSIDES
-
-Open-source NLP and AI research community
+- **BioGPT** by Microsoft Research  
+- Biomedical datasets such as DrugBank and TWOSIDES  
+- Open-source NLP and AI research community
