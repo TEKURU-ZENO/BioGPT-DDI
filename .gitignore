@@ -12,3 +12,7 @@ CLAUDE.local.md
 
 # Generated external evidence (licensed third-party data)
 api/ddi/data/*.json
+
+# Trained model artifacts
+models/
+*.joblib

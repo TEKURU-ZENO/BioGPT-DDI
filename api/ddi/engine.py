@@ -16,7 +16,7 @@ from itertools import combinations
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from . import evidence
-from . import pk_model
+from . import learned, pk_model
 from .burden import regimen_burden
 from .patient import Patient, escalate, patient_alerts
 from .lexicon import DRUGS, KB_VERSION, SYNONYMS, DrugProfile
@@ -545,6 +545,10 @@ def analyze_resolved(d1: ResolvedDrug, d2: ResolvedDrug, patient: Optional[Patie
                 "message": f"Recognised {names} via RxNorm, but this knowledge base has no interaction profile for "
                            f"it. Absence of an alert is NOT evidence of safety."}
 
+    signals = [dict(sig, drugs=[i.title(), j.title()]) for i in d1.ingredients for j in d2.ingredients
+               if i != j for sig in [learned.predict(i, j)] if sig]
+    if signals:
+        base["predicted_signals"] = signals
     return {**base, "status": "no_known_interaction", "severity": NONE_KNOWN,
             "prediction": "No known interaction", "findings": [],
             "confidence": "Limited - based on a curated knowledge base of common drugs",

@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from api.ddi import biogpt, evidence
+from api.ddi import biogpt, evidence, learned
 from api.ddi.engine import analyze_pair, analyze_regimen
 from api.ddi.lexicon import DRUGS, KB_VERSION
 from api.ddi.patient import Patient
@@ -134,6 +134,7 @@ def health_check():
         "engine": "curated rules + mechanism rules (CYP/P-gp, pharmacodynamic axes)",
         "biogpt_literature_context": biogpt.enabled(),
         "external_evidence": evidence.external_status(),
+        "learned_model": learned.status(),
     }
 
 
