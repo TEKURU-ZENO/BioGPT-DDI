@@ -139,6 +139,40 @@ def _find_header(rows: List[List[str]], context: str) -> Tuple[int, List[Optiona
     return best_i, best
 
 
+_ROLE_RE = re.compile(
+    r"\b(?:CYP\s?)?(1A2|2B6|2C8|2C9|2C19|2D6|3A4|3A)\s+"
+    r"(strong|moderate|weak|sensitive|moderate\s+sensitive)\s+(inhibitor|inducer|substrate)s?\b", re.I)
+
+
+def parse_drug_rows(rows: List[List[str]]) -> Dict[str, Dict[str, Dict[str, str]]]:
+    """Parse the drug-per-row layout ("Drug or Other Substance" | "CYP Strg INH" | ...).
+
+    Roles are read from the cell text itself (e.g. "2D6 moderate inhibitor"), so the parser does not
+    depend on the abbreviated column headers.
+    """
+    roles: Dict[str, Dict[str, Dict[str, str]]] = {}
+    for row in rows[1:]:
+        if len(row) < 2:
+            continue
+        names = clean_names(row[0])
+        if len(names) != 1:
+            continue
+        name = names[0]
+        for m in _ROLE_RE.finditer(" ; ".join(row[1:])):
+            enz = "CYP3A4" if m.group(1).upper().startswith("3A") else f"CYP{m.group(1).upper()}"
+            level = " ".join(m.group(2).lower().split())
+            kind = m.group(3).lower()
+            if kind == "substrate":
+                field, level = "sub", ("moderate" if level.startswith("moderate") else "sensitive")
+            else:
+                field = "inh" if kind == "inhibitor" else "ind"
+                if level not in ("strong", "moderate", "weak"):
+                    continue
+            slot = roles.setdefault(name, {"sub": {}, "inh": {}, "ind": {}})[field]
+            slot.setdefault(enz, level)
+    return roles
+
+
 def parse_html(html: str, debug: bool = False) -> Dict[str, Dict[str, Dict[str, str]]]:
     p = _Tables()
     p.feed(html)
@@ -150,6 +184,16 @@ def parse_html(html: str, debug: bool = False) -> Dict[str, Dict[str, Dict[str, 
             for r in rows[:3]:
                 print(f"    {[c[:40] for c in r][:6]}", file=sys.stderr)
         if len(rows) < 2:
+            continue
+        if rows[0] and re.search(r"drug\b.*substance|^drug\b", rows[0][0], re.I):
+            found = parse_drug_rows(rows)
+            if debug:
+                print(f"    -> drug-per-row layout: roles for {len(found)} drugs", file=sys.stderr)
+            for name, r in found.items():
+                dst = roles.setdefault(name, {"sub": {}, "inh": {}, "ind": {}})
+                for field in ("sub", "inh", "ind"):
+                    for enz, level in r[field].items():
+                        dst[field].setdefault(enz, level)
             continue
         h_idx, kinds = _find_header(rows, context)
         if h_idx < 0:

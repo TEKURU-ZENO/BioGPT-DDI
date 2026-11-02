@@ -62,3 +62,28 @@ def test_title_row_above_header_and_rowspan_enzyme():
     assert roles["quinidine"]["inh"] == {"CYP2D6": "strong"}       # continuation row of a rowspan
     assert roles["mirabegron"]["inh"] == {"CYP2D6": "moderate"}
     assert roles["cimetidine"]["inh"] == {"CYP2D6": "weak"}
+
+
+def test_drug_per_row_layout_from_live_page():
+    # Layout observed on the live FDA page (validation run 2 debug log): one row per drug,
+    # roles written as text in abbreviated columns.
+    html = """<h2>Filter boxes to find examples of drugs and other substances within selected pathways</h2>
+    <table>
+    <tr><th>Drug or Other Substance</th><th>CYP Strg INH</th><th>CYP Mod INH</th><th>CYP WK INH</th>
+        <th>CYP Strg IND</th><th>CYP Mod IND</th><th>CYP Sens SUB</th></tr>
+    <tr><td>abiraterone</td><td></td><td>2D6 moderate inhibitor</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>acyclovir</td><td></td><td></td><td>1A2 weak inhibitor</td><td></td><td></td><td></td></tr>
+    <tr><td>clarithromycin</td><td>3A strong inhibitor</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>rifampin</td><td></td><td>2C8 moderate inhibitor</td><td></td><td>3A strong inducer, 2C19 strong inducer</td>
+        <td>2C9 moderate inducer</td><td></td></tr>
+    <tr><td>midazolam</td><td></td><td></td><td></td><td></td><td></td><td>3A sensitive substrate</td></tr>
+    <tr><td>tadalafil</td><td></td><td></td><td></td><td></td><td></td><td>3A moderate sensitive substrate</td></tr>
+    </table>"""
+    roles = parse_html(html)
+    assert roles["abiraterone"]["inh"] == {"CYP2D6": "moderate"}
+    assert roles["acyclovir"]["inh"] == {"CYP1A2": "weak"}
+    assert roles["clarithromycin"]["inh"] == {"CYP3A4": "strong"}
+    assert roles["rifampin"]["ind"] == {"CYP3A4": "strong", "CYP2C19": "strong", "CYP2C9": "moderate"}
+    assert roles["rifampin"]["inh"] == {"CYP2C8": "moderate"}
+    assert roles["midazolam"]["sub"] == {"CYP3A4": "sensitive"}
+    assert roles["tadalafil"]["sub"] == {"CYP3A4": "moderate"}
