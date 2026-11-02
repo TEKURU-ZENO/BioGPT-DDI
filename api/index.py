@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 from api.cds_hooks import router as cds_router
 from api.ddi import biogpt, evidence, learned
 from api.ddi.engine import analyze_pair, analyze_regimen
-from api.ddi.lexicon import DRUGS, KB_VERSION
+from api.ddi.lexicon import DRUGS, GENERATED_ROLES, KB_VERSION
 from api.ddi.patient import Patient
 from api.ddi.pgx import VALID as PGX_VALID
 from api.ddi.reports import attach_reports
@@ -132,7 +132,9 @@ def health_check():
     return {
         "status": "healthy",
         "version": API_VERSION,
-        "knowledge_base": {"version": KB_VERSION, "ingredients": len(DRUGS), "curated_rules": len(CURATED)},
+        "knowledge_base": {"version": KB_VERSION, "ingredients": len(DRUGS), "curated_rules": len(CURATED),
+                           "fda_cyp_roles": {k: (len(v) if isinstance(v, list) else v)
+                                             for k, v in GENERATED_ROLES.items()}},
         "engine": "curated rules + mechanism rules (CYP/P-gp, pharmacodynamic axes)",
         "biogpt_literature_context": biogpt.enabled(),
         "external_evidence": evidence.external_status(),

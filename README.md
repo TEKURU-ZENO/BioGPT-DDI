@@ -87,13 +87,14 @@ api/ddi/evidence.py         optional DDInter + FDA label evidence
 api/ddi/learned.py          optional learned-model signal
 api/ddi/reports.py          grounded patient / professional text
 api/utils/pdf_generator.py  PDF reports
-scripts/                    import_ddinter, fetch_label_evidence (openFDA), evaluate
+scripts/                    import_ddinter, fetch_label_evidence, import_fda_cyp_table, evaluate, evaluate_pk
+scripts/references/         builders for independent references: DDInter, KEGG, ONC, FDA-label PK, PK tables
 pipelines/                  literature (PubMed mining), faers (disproportionality)
 research/ddi_ml/            learned layer: features, cold-start splits, conformal prediction, training CLI
 eval/gold_standard.csv      regression gold set (shared by tests and scripts/evaluate.py)
-docs/                       clinical evaluation protocol
+docs/                       validation approach, clinical evaluation protocol
 src/                        React UI: Analyzer, Medication List, About
-tests/                      250 tests
+tests/                      276 tests
 ```
 
 ---
@@ -160,27 +161,30 @@ redistributing it. DDInter, for example, is free for non-commercial use only.
 
 ## Validation
 
-- **Regression gold set:** 78 pairs in `eval/gold_standard.csv`. CI fails if safety-critical recall drops below
-  100%. This set includes the cases version 1 got dangerously wrong:
+See [`docs/validation.md`](docs/validation.md). In short:
 
-  | Pair | v1 | now |
-  |---|---|---|
-  | Warfarin + Fluconazole | Minor | **Major** |
-  | Linezolid + Sertraline | Minor | **Contraindicated** |
-  | Tramadol + Sertraline | Minor | **Major** |
-  | Clopidogrel + Omeprazole | Minor | **Major** |
-  | Water + Sugar / "a" + "b" | Moderate / Major | **Unknown** |
+1. **Internal regression set** (`eval/gold_standard.csv`, 78 pairs, authored here). CI fails if safety-critical
+   recall drops below 100%. This shows the rules fire, not that the engine generalises. It includes the cases
+   version 1 got dangerously wrong (e.g. warfarin + fluconazole was "Minor"; water + sugar was "Moderate").
+2. **Independent references the project did not author.** These are DDInter (pharmacist-curated severities),
+   KEGG DDI (label-derived contraindications) and the ONC expert-panel lists. The engine is scored with its own
+   DDInter/learned layers switched off, to avoid circularity. Metrics are coverage, recall per grade with
+   bootstrap CIs, weighted kappa, under-calls and false alerts.
+3. **Exposure estimates against observed AUC ratios.** Sources are FDA labels (openFDA) and published CR/IR
+   compilations or PK-DB. Metrics are GMFE, % within 2-fold, range coverage, and category agreement.
+4. **Breadth.** The FDA CYP substrate/inhibitor/inducer tables are imported to widen the mechanism layer, with
+   coverage reported before and after.
 
-- **The gold set is not clinical validation.** The developers assembled it. `docs/clinical_evaluation_protocol.md`
-  describes the blinded pharmacist study needed before any claim of clinical usefulness. `scripts/evaluate.py
-  --reference` computes its metrics (weighted kappa, under-call rate).
-- **Learned layer:** the pipeline is tested on synthetic data with a known structural rule. **No trained model is
-  shipped.** Real performance must be measured on DrugBank or TWOSIDES with cold-drug splits.
+The **Independent validation** GitHub Actions workflow builds all references (the sources need internet access)
+and publishes the reports. A blinded pharmacist study (`docs/clinical_evaluation_protocol.md`) is still the
+strongest evidence. The learned-layer pipeline is tested on synthetic data only, and no trained model is shipped.
 
 ### Known limitations
 
 - The knowledge base covers about 230 ingredients. Anything outside it is reported as unknown, never as safe.
-- PK estimates are class-level, not drug-specific (no curated Ki or fm). Transporter effects are not quantified.
+- PK estimates are class-level, not drug-specific (no curated Ki or fm), so very strong interactions are
+  under-predicted (every strong-inhibitor + sensitive-substrate pair is estimated at ~5x). `scripts/evaluate_pk.py`
+  quantifies this. Transporter effects are not quantified.
 - Dose, hepatic function and VKORC1/HLA genotypes are not modelled.
 - The CDS Hooks service does not verify the EHR's JWT. A deployment must add JWT verification and restrict CORS.
 - Not clinically validated.

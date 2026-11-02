@@ -27,7 +27,10 @@ interaction database. Every change should be reviewed by a pharmacist.
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, FrozenSet, Optional
 
 KB_VERSION = "2026.11.0"
@@ -315,6 +318,50 @@ _RAW: Dict[str, dict] = {
 
 DRUGS: Dict[str, DrugProfile] = {name: DrugProfile(name=name, **spec) for name, spec in _RAW.items()}
 
+_SUB_LEVELS, _MOD_LEVELS = {"sensitive", "moderate"}, {"strong", "moderate", "weak"}
+
+
+def merge_roles(drugs: Dict[str, DrugProfile], data: dict, synonyms: Optional[Dict[str, object]] = None) -> dict:
+    """Merge generated CYP/P-gp roles (scripts/import_fda_cyp_table.py) into ``drugs`` in place.
+
+    Hand-curated roles always win; disagreements are returned as ``conflicts``
+    for pharmacist review. Unknown drugs become mechanism-only profiles.
+    """
+    synonyms = SYNONYMS if synonyms is None else synonyms
+    added, enriched, conflicts = [], [], []
+    for raw_name, roles in (data.get("roles") or {}).items():
+        target = synonyms.get(raw_name, raw_name)
+        if isinstance(target, list):
+            continue
+        sub = {e: v for e, v in (roles.get("sub") or {}).items() if v in _SUB_LEVELS}
+        inh = {e: v for e, v in (roles.get("inh") or {}).items() if v in _MOD_LEVELS}
+        ind = {e: v for e, v in (roles.get("ind") or {}).items() if v in ("strong", "moderate")}
+        if target in drugs:
+            prof, changed = drugs[target], False
+            for mine, theirs, label in ((prof.sub, sub, "substrate"), (prof.inh, inh, "inhibitor"),
+                                        (prof.ind, ind, "inducer")):
+                for enz, level in theirs.items():
+                    if enz not in mine:
+                        mine[enz] = level
+                        changed = True
+                    elif mine[enz] != level:
+                        conflicts.append({"drug": target, "role": label, "enzyme": enz,
+                                          "lexicon": mine[enz], "fda_table": level})
+            if changed:
+                enriched.append(target)
+        elif sub or inh or ind:
+            drugs[target] = DrugProfile(name=target, tags=frozenset({"fda_cyp_table"}), sub=sub, inh=inh, ind=ind)
+            added.append(target)
+    return {"added": sorted(added), "enriched": sorted(enriched), "conflicts": conflicts}
+
+
+def _generated_roles_path() -> Path:
+    base = os.getenv("DDI_DATA_DIR") or str(Path(__file__).resolve().parent / "data")
+    return Path(base) / "fda_cyp_roles.json"
+
+
+GENERATED_ROLES: dict = {"loaded": False}
+
 
 # Brand names, abbreviations, international names and common lay terms.
 # A value that is a list denotes a fixed-dose combination product.
@@ -442,3 +489,20 @@ SALT_WORDS = {
     "injectable", "prefilled", "syringe", "pen", "vial", "inhaler", "metered", "dose", "actuat", "ml",
     "disintegrating", "enteric", "product", "kit", "system",
 }
+
+
+def _load_generated_roles() -> None:
+    path = _generated_roles_path()
+    if not path.exists():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    stats = merge_roles(DRUGS, data)
+    GENERATED_ROLES.update({"loaded": True, "source": data.get("source"), "retrieved": data.get("retrieved"),
+                            "added": len(stats["added"]), "enriched": len(stats["enriched"]),
+                            "conflicts": stats["conflicts"]})
+
+
+_load_generated_roles()

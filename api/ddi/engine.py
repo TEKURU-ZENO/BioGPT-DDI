@@ -11,6 +11,7 @@ base", which is not the same as "safe".
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass, field
 from itertools import combinations
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -111,6 +112,12 @@ def _induction_severity(strength: str, sensitivity: str, nti: bool) -> Optional[
     return None
 
 
+def _tag(est: Optional[dict], perp: DrugProfile, victim: DrugProfile) -> Optional[dict]:
+    if est:
+        est.update({"perpetrator": perp.name, "victim": victim.name})
+    return est
+
+
 def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
     out: List[Finding] = []
     for enz, strength in perp.inh.items():
@@ -130,7 +137,7 @@ def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
                     f"increase its side effects.",
                     (f"more side effects from {victim.name.title()} than usual",),
                     (SRC_FDA_CYP,), "mechanism-inferred", _PK_LEVEL, perp, victim))
-                out[-1].pk_estimate = pk_model.estimate("inhibit", enz, strength, victim.sub[enz])
+                out[-1].pk_estimate = _tag(pk_model.estimate("inhibit", enz, strength, victim.sub[enz]), perp, victim)
         if victim.prodrug == enz and strength in {"strong", "moderate"}:
             out.append(_f(
                 MODERATE, PK, f"prodrug:{enz}",
@@ -159,7 +166,7 @@ def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
                     f"not work as well.",
                     (f"{victim.name.title()} seeming not to work as well as before",),
                     (SRC_FDA_CYP,), "mechanism-inferred", _PK_LEVEL, perp, victim))
-                out[-1].pk_estimate = pk_model.estimate("induce", enz, strength, victim.sub[enz])
+                out[-1].pk_estimate = _tag(pk_model.estimate("induce", enz, strength, victim.sub[enz]), perp, victim)
     return out
 
 
@@ -417,8 +424,16 @@ def _pair_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
 
     inferred = _pk_findings(x, y) + _pk_findings(y, x) + _pd_findings(x, y)
     seen_axes = set()
+    curated_pk = [f for f in findings if "pk" in f.axis or "Pharmacokinetic" in f.category]
     for f in inferred:
         if _covered(f.axis, covers) or f.axis in seen_axes:
+            # A curated rule explains this axis; keep the quantitative estimate (largest change wins).
+            if f.pk_estimate and curated_pk:
+                target = curated_pk[0]
+                cur = target.pk_estimate
+                change = lambda e: abs(math.log(e["auc_ratio"]))
+                if cur is None or change(f.pk_estimate) > change(cur):
+                    target.pk_estimate = f.pk_estimate
             continue
         seen_axes.add(f.axis)
         findings.append(f)

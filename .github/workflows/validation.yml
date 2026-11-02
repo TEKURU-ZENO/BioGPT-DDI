@@ -1,0 +1,101 @@
+name: Independent validation
+
+# Builds validation references from sources this project did not author
+# (DDInter, KEGG DDI, FDA labels via openFDA, FDA CYP tables) and scores the
+# engine against them. Runs on demand and weekly. Reference data stays in
+# short-lived workflow artifacts and is never committed (third-party licences).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ddinter_negatives:
+        description: "Sampled non-interacting pairs for the DDInter false-alert estimate"
+        default: "1000"
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DDI_ENABLE_RXNAV: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r api/requirements.txt
+
+      - name: Build reference - DDInter (pharmacist-curated severities)
+        continue-on-error: true
+        run: python -m scripts.references.ddinter --download --negatives "${{ inputs.ddinter_negatives || '1000' }}" --out eval/references/ddinter.csv
+
+      - name: Build reference - KEGG DDI (label-derived contraindications)
+        continue-on-error: true
+        run: python -m scripts.references.kegg --out eval/references/kegg.csv
+
+      - name: Build reference - ONC expert-panel lists (if transcribed)
+        continue-on-error: true
+        run: |
+          if [ "$(wc -l < eval/references/onc_transcription.csv)" -gt 1 ]; then
+            python -m scripts.references.onc --out eval/references/onc.csv
+          else
+            echo "ONC transcription is empty - skipping"
+          fi
+
+      - name: Build reference - observed AUC ratios from FDA labels
+        continue-on-error: true
+        run: python -m scripts.references.pk_labels --out eval/references/pk_labels.csv
+
+      - name: Evaluate - baseline lexicon
+        run: |
+          refs=""
+          for f in ddinter kegg onc; do
+            [ -s "eval/references/$f.csv" ] && refs="$refs --reference eval/references/$f.csv"
+          done
+          python -m scripts.evaluate $refs --out eval-baseline.md --min-critical-recall 0
+          if [ -s eval/references/pk_labels.csv ]; then
+            python -m scripts.evaluate_pk eval/references/pk_labels.csv --holdout-seed 7 --out eval-pk.md
+          fi
+
+      - name: Expand mechanism layer from FDA CYP tables
+        id: fda
+        continue-on-error: true
+        run: python -m scripts.import_fda_cyp_table
+
+      - name: Evaluate - with FDA CYP roles merged
+        if: steps.fda.outcome == 'success'
+        run: |
+          python -c "from api.ddi.lexicon import GENERATED_ROLES as g; import json; print(json.dumps({k: (len(v) if isinstance(v, list) else v) for k, v in g.items()}, indent=1))" > fda-roles-summary.json
+          refs=""
+          for f in ddinter kegg onc; do
+            [ -s "eval/references/$f.csv" ] && refs="$refs --reference eval/references/$f.csv"
+          done
+          python -m scripts.evaluate $refs --out eval-with-fda-roles.md --min-critical-recall 0
+          if [ -s eval/references/pk_labels.csv ]; then
+            python -m scripts.evaluate_pk eval/references/pk_labels.csv --holdout-seed 7 --out eval-pk-with-fda-roles.md
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          for f in eval-baseline.md eval-pk.md eval-with-fda-roles.md eval-pk-with-fda-roles.md; do
+            [ -f "$f" ] && { echo "<details><summary>$f</summary>"; echo; cat "$f"; echo "</details>"; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          [ -f fda-roles-summary.json ] && { echo '```json'; cat fda-roles-summary.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          for f in eval/references/*.csv; do echo "- $f: $(($(wc -l < "$f") - 1)) rows" >> "$GITHUB_STEP_SUMMARY"; done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-reports
+          retention-days: 30
+          path: |
+            eval-*.md
+            fda-roles-summary.json
+            eval/references/*.csv
+            api/ddi/data/fda_cyp_roles.json

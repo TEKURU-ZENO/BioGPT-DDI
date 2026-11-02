@@ -16,3 +16,8 @@ api/ddi/data/*.json
 # Trained model artifacts
 models/
 *.joblib
+
+# Built validation references (third-party licences); the ONC transcription is hand-made and tracked
+eval/references/*.csv
+!eval/references/onc_transcription.csv
+eval-*.md

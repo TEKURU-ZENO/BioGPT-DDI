@@ -34,7 +34,7 @@ E_INDUCER = {"strong": (5.0, 7.0, 10.0), "moderate": (2.0, 3.0, 5.0), "weak": (1
 FM_SUBSTRATE = {"sensitive": (0.8, 0.9, 0.95), "moderate": (0.5, 0.65, 0.8)}
 
 MODEL_NAME = "Basic static model, FDA class-calibrated parameters"
-CYP_ENZYMES = {"CYP3A4", "CYP2C9", "CYP2C19", "CYP2D6", "CYP1A2"}
+CYP_ENZYMES = {"CYP3A4", "CYP2C9", "CYP2C19", "CYP2D6", "CYP1A2", "CYP2C8", "CYP2B6"}
 
 
 def _aucr_inh(fm: float, r: float) -> float:
