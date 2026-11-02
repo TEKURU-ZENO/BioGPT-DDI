@@ -287,3 +287,35 @@ only in CI and is git-ignored.
 The KEGG worklist is dominated by ticagrelor, rifampin, colchicine and tadalafil. There, Japanese labels
 contraindicate what US labels grade as "avoid" or a dose limit, so these are largely jurisdiction differences, not
 errors.
+
+## Run 7: 2026-11-02 (commit `d3899fa`, [run 41500919015](https://github.com/TEKURU-ZENO/BioGPT-DDI/actions/runs/41500919015))
+
+**Exposure fitting with cross-validated shrinkage.** 5-fold cross-validation inside the calibration half gave a mean
+|ln error| of 0.429–0.566 for the fitted variants and **0.410 for the class model**. No fitted strength beat the
+class model, so **no parameters were written**. The holdout therefore matches the class model: GMFE 1.70, 71.7%
+within 2-fold. Run 6's unregularised fit reached 1.84. The safeguard works.
+
+The conclusion is that, with the 54 enzyme-linked label observations available, drug-specific fitting does not
+generalise. A cleaner, larger source of observed AUC ratios is needed, such as the CR/IR supplementary tables.
+
+**Severity (with FDA-table roles).** The reference set was slightly larger: 334 of 1,939 DDInter drugs (17.2%) and
+16,662 pairs.
+
+| Metric | Run 6 | Run 7 |
+|---|---|---|
+| DDInter Major pairs graded Major | 31.6% | 31.0% |
+| Weighted kappa | 0.141 | 0.140 |
+| False alerts on sampled negatives | 9.7% | **8.6%** |
+| KEGG contraindicated pairs graded Contraindicated | 27.3% | 27.0% |
+
+Grading is stable within the confidence intervals. False alerts fell after combination rows stopped being imported
+as single fake drugs. **7 combination rows** are now mapped to their ingredients.
+
+**Conflicts found by the merge, now fixed in the lexicon.** Both came from my previous round of additions:
+- conivaptan as a CYP3A4 inhibitor: strong → **moderate** (FDA table). It stays contraindicated with strong CYP3A
+  inhibitors per its own label.
+- ivabradine as a CYP3A4 substrate: moderate → **sensitive** (FDA table).
+
+**Curation worklist** (essentially unchanged): oncology kinase inhibitors (crizotinib, ceritinib, vemurafenib,
+ivosidenib, dasatinib, venetoclax, ibrutinib, lorlatinib, entrectinib, selpercatinib), teriflunomide, hydrocodone,
+eliglustat, lumacaftor/ivacaftor, tacrolimus, apalutamide/enzalutamide, hydroxychloroquine, bupropion, ondansetron.
