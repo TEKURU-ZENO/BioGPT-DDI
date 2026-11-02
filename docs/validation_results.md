@@ -98,3 +98,53 @@ adopted.
 - **FDA-label AUC extractor:** the magnitude is now the one nearest the "AUC" mention (before or after it), the
   direction comes from the verb nearest that magnitude, and confidence-level percents ("90% CI") are ignored. Run 1
   missed "2.2-fold higher … AUC" phrasing and could mis-assign direction.
+
+## Run 2: 2026-11-02 (commit `d41d942`, [run 41426010219](https://github.com/TEKURU-ZENO/BioGPT-DDI/actions/runs/41426010219))
+
+Same engine as run 1, so the scores are unchanged. This run confirmed the evaluator fixes:
+- KEGG kappa now reads "n/a".
+- DDInter coverage excluding severity-"Unknown" records is **29.9%** (28.5–31.3%).
+
+Its `--debug` log showed that the live FDA CYP page is a single drug-per-row table, with roles written as text
+such as "2D6 moderate inhibitor". The parser was rewritten for that layout in commit `5ec1374`; it will be
+measured in run 4.
+
+## Run 3: 2026-11-02 (commit `4a6984b`, [run 41428509966](https://github.com/TEKURU-ZENO/BioGPT-DDI/actions/runs/41428509966))
+
+This run measures the label-backed rule additions and the AUC-extractor fix.
+
+| Metric | Run 1 | Run 3 |
+|---|---|---|
+| DDInter coverage, all pairs | 15.8% | **16.6%** (15.8–17.4%) |
+| DDInter coverage, excluding "Unknown" | 29.9% | **31.4%** (30.0–32.8%) |
+| DDInter Major pairs detected | 68.7% | **70.2%** (67.3–73.1%) |
+| DDInter Major pairs graded Major | 48.6% | **51.3%** (48.1–54.3%) |
+| DDInter Moderate pairs detected | 20.7% | **22.4%** (20.9–23.9%) |
+| Weighted kappa vs DDInter | 0.230 | **0.242** (0.224–0.259) |
+| False alerts on sampled negatives | 12.2% | 12.3% (unchanged) |
+| KEGG contraindicated pairs detected | 78.2% | **81.7%** (76.7–86.3%) |
+| KEGG contraindicated pairs graded Contraindicated | 37.0% | **39.3%** (33.2–45.4%) |
+
+These are modest, consistent gains with no rise in false alerts, as expected from about 40 targeted rules against
+about 8,000 reference pairs. Breadth is still the main limit: 11.9% of DDInter drugs are in the lexicon.
+
+**Exposure (AUC) estimates.** Because of the extractor fix, label observations rose from 181 to 262 and unique
+pairs from 95 to 136. The pair set changed, so run 1 and run 3 are not directly comparable.
+
+| Metric | Run 3 |
+|---|---|
+| Coverage of observed interactions | **37.4%** (run 1: 27.4%) |
+| Pairs scored | 38 |
+| GMFE | 1.57 |
+| Within 2-fold | 81.6% |
+| Under- / over-predicted by more than 2-fold | **7 / 0** |
+
+The errors are one-sided. The class model caps the fraction metabolised by one enzyme at 0.9, so it cannot reach
+the magnitudes seen with extremely sensitive substrates:
+- buspirone + itraconazole: 19× observed vs 5.3× predicted
+- simvastatin + diltiazem: 6.7× vs 2.5×
+- sildenafil + ritonavir: 11× vs 5.3×
+
+The principled fix is drug-specific fm values for those substrates. They must be fitted on the calibration half only
+and then reported on the holdout half. The extractor fix also corrected the earlier sirolimus + verapamil outlier,
+from 0.67× to 1.5×.
