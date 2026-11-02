@@ -63,8 +63,10 @@ curl -s localhost:8000/api/regimen -H 'content-type: application/json' -d '{
 That request returns:
 - **Codeine:** the patient is a functional CYP2D6 poor metaboliser because paroxetine phenoconverts them, so codeine
   should be avoided.
-- **Clopidogrel:** omeprazole converts the patient's genetic CYP2C19 IM status to a functional PM, so clopidogrel
-  should be avoided.
+- **Clopidogrel:** the patient's CYP2C19 IM genotype reduces clopidogrel activation (CPIC: avoid for ACS/PCI), and
+  clopidogrel + omeprazole is a Major interaction in its own right. Omeprazole is only a *weak* CYP2C19 inhibitor in
+  the FDA table, so it does not phenoconvert; a strong inhibitor such as fluconazole would turn the patient into a
+  functional poor metaboliser.
 - **Codeine + zolpidem:** Major, opioid with a CNS depressant.
 - **Regimen:** three CNS-active drugs in an adult ≥ 65 (Beers), and an anticholinergic burden of 4.
 

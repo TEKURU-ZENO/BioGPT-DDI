@@ -175,3 +175,55 @@ appear in the reference set; the table above only shows extra roles for drugs al
 - The merge summary (drugs added, roles enriched, FDA-vs-curated conflicts) is now printed to the log.
 
 Run 5 numbers will not be comparable to runs 1–4, because the reference set grows.
+
+## Run 5: 2026-11-02 (commit `f385117`, [run 41436292391](https://github.com/TEKURU-ZENO/BioGPT-DDI/actions/runs/41436292391))
+
+This is the first fair breadth measurement. The FDA table was imported first, the references were built with the
+expanded lexicon, and both columns score exactly the same pairs. **These numbers are not comparable with runs 1–4**,
+because the reference set grew to include the new drugs.
+
+**FDA merge.** Roles were parsed for 198 drugs: **119 drugs added** as mechanism-only profiles, 24 existing drugs
+enriched, and 5 conflicts with hand-curated roles (resolved below). Lexicon coverage of DDInter drugs rose from
+231/1,939 (11.9%) to **324/1,939 (16.7%)**.
+
+**References.**
+- DDInter: 16,249 pairs, including 1,000 sampled negatives.
+- KEGG: 9,264 pairs (330 of 350 ingredients mapped).
+- FDA labels: 703 AUC observations, giving 346 unique pairs.
+
+| Metric | Hand-curated only | + FDA-table roles |
+|---|---|---|
+| DDInter coverage, excluding "Unknown" | 13.6% (12.9–14.3%) | **27.4%** (26.5–28.2%) |
+| DDInter Major pairs detected | 24.7% | **48.6%** (46.7–50.4%) |
+| DDInter Major pairs graded Major | 18.0% | **29.4%** (27.7–31.0%) |
+| DDInter Moderate pairs detected | 10.2% | **20.7%** |
+| Weighted kappa | 0.064 | **0.136** (0.127–0.145) |
+| False alerts on sampled negatives | 6.1% | 9.3% |
+| KEGG contraindicated pairs detected | 42.3% | **67.4%** (63.0–71.3%) |
+| KEGG contraindicated pairs graded Contraindicated | 20.4% | 20.4% |
+| PK coverage of observed interactions | 12.8% | **33.3%** |
+| PK pairs scored | 38 | 103 |
+| PK GMFE / within 2-fold | 1.57 / 81.6% | 1.75 / 74.8% |
+| PK under- / over-predicted by > 2-fold | 7 / 0 | 16 / 10 |
+
+**Reading.**
+1. On the same pairs, the FDA-table roles roughly **double detection**: Major detected 24.7% → 48.6%, KEGG
+   contraindications 42.3% → 67.4%, PK coverage 12.8% → 33.3%. This is the breadth gain run 4 could not see.
+2. **Detection now outpaces grading.** Mechanism-only drugs have no curated rules, so they are flagged but rarely
+   graded Major. Only 29% of DDInter Major pairs are graded Major, and contraindication grading did not move.
+   Curated rules for the new drugs' high-severity pairs are the next lever.
+3. **The cost is precision.** False alerts rose from 6.1% to 9.3% on sampled negatives, mostly class-level CYP
+   findings for drugs with no curated context.
+4. **The PK error became two-sided** (16 under, 10 over). The class-level sensitivity of the new drugs is coarse.
+   Drug-specific fm values fitted on the calibration half are the fix.
+
+**Conflicts resolved (lexicon aligned with the FDA table, its cited source):**
+- cyclosporine as a CYP3A4 inhibitor: moderate → weak
+- omeprazole as a CYP2C19 inhibitor: moderate → weak
+- nortriptyline as a CYP2D6 substrate: sensitive → moderate
+- warfarin as a CYP2C9 substrate: sensitive → moderate (still narrow-therapeutic-index, so warfarin interactions keep
+  their severity)
+- ticagrelor as a CYP3A4 substrate: moderate → sensitive
+
+Consequence: omeprazole no longer phenoconverts CYP2C19, so tests and the README example were updated. Clopidogrel +
+omeprazole remains a curated Major interaction.

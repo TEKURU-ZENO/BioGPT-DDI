@@ -67,7 +67,7 @@ STRONG, MOD, WEAK = "strong", "moderate", "weak"
 
 _RAW: Dict[str, dict] = {
     # ---------------------------------------------------------------- anticoagulants
-    "warfarin": _d("anticoagulant", "vitamin_k_antagonist", sub={CYP2C9: S}, nti=True),
+    "warfarin": _d("anticoagulant", "vitamin_k_antagonist", sub={CYP2C9: M}, nti=True),
     "apixaban": _d("anticoagulant", "doac", sub={CYP3A4: M, PGP: M}),
     "rivaroxaban": _d("anticoagulant", "doac", sub={CYP3A4: M, PGP: M}),
     "dabigatran": _d("anticoagulant", "doac", sub={PGP: S}),
@@ -78,7 +78,7 @@ _RAW: Dict[str, dict] = {
     "aspirin": _d("antiplatelet", "salicylate"),
     "clopidogrel": _d("antiplatelet", "p2y12_inhibitor", prodrug=CYP2C19),
     "prasugrel": _d("antiplatelet", "p2y12_inhibitor"),
-    "ticagrelor": _d("antiplatelet", "p2y12_inhibitor", sub={CYP3A4: M}),
+    "ticagrelor": _d("antiplatelet", "p2y12_inhibitor", sub={CYP3A4: S}),
     "dipyridamole": _d("antiplatelet"),
     "cilostazol": _d("antiplatelet", sub={CYP3A4: M}),
     # ---------------------------------------------------------------- NSAIDs
@@ -102,7 +102,7 @@ _RAW: Dict[str, dict] = {
     "desvenlafaxine": _d("snri", "serotonergic", "bleeding_serotonergic"),
     "duloxetine": _d("snri", "serotonergic", "bleeding_serotonergic", sub={CYP1A2: S}, inh={CYP2D6: MOD}),
     "amitriptyline": _d("tca", "serotonergic", "cns_depressant", "seizure_threshold", sub={CYP2D6: M}),
-    "nortriptyline": _d("tca", "serotonergic", "seizure_threshold", sub={CYP2D6: S}),
+    "nortriptyline": _d("tca", "serotonergic", "seizure_threshold", sub={CYP2D6: M}),
     "clomipramine": _d("tca", "serotonergic", "bleeding_serotonergic", "seizure_threshold"),
     "trazodone": _d("serotonergic", "cns_depressant", sub={CYP3A4: M}),
     "mirtazapine": _d("serotonergic", "cns_depressant"),
@@ -271,7 +271,7 @@ _RAW: Dict[str, dict] = {
     "ferrous sulfate": _d("polyvalent_cation", "iron"),
     "magnesium hydroxide": _d("polyvalent_cation", "antacid"),
     "aluminum hydroxide": _d("polyvalent_cation", "antacid"),
-    "omeprazole": _d("ppi", sub={CYP2C19: S}, inh={CYP2C19: MOD}),
+    "omeprazole": _d("ppi", sub={CYP2C19: S}, inh={CYP2C19: WEAK}),
     "esomeprazole": _d("ppi", sub={CYP2C19: M}, inh={CYP2C19: MOD}),
     "pantoprazole": _d("ppi"),
     "lansoprazole": _d("ppi"),
@@ -289,7 +289,7 @@ _RAW: Dict[str, dict] = {
     # ---------------------------------------------------------------- immunology / oncology
     "tacrolimus": _d("calcineurin_inhibitor", "immunosuppressant", "k_retaining", sub={CYP3A4: S}, nti=True),
     "cyclosporine": _d("calcineurin_inhibitor", "immunosuppressant", "k_retaining", sub={CYP3A4: M},
-                       inh={CYP3A4: MOD, PGP: MOD}, nti=True),
+                       inh={CYP3A4: WEAK, PGP: MOD}, nti=True),
     "sirolimus": _d("mtor_inhibitor", "immunosuppressant", sub={CYP3A4: S}, nti=True),
     "everolimus": _d("mtor_inhibitor", "immunosuppressant", sub={CYP3A4: S}),
     "azathioprine": _d("thiopurine", "immunosuppressant"),

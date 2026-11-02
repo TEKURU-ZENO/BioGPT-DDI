@@ -108,7 +108,13 @@ def test_api_patient_validation():
 
 
 def test_api_regimen_with_patient():
-    body = client.post("/api/regimen", json={"drugs": ["Clopidogrel", "Omeprazole", "Zolpidem"],
+    # Fluconazole is a strong CYP2C19 inhibitor (omeprazole is only weak in the FDA table and does not phenoconvert)
+    body = client.post("/api/regimen", json={"drugs": ["Clopidogrel", "Fluconazole", "Zolpidem"],
                                              "patient": {"age": 80, "pgx": {"CYP2C19": "IM"}}}).json()
     assert body["burden"] is not None
     assert any(a["category"] == "drug-drug-gene" and a["drug"] == "Clopidogrel" for a in body["patient_alerts"])
+
+
+def test_weak_inhibitor_does_not_phenoconvert():
+    r = analyze_regimen(["Clopidogrel", "Omeprazole"], Patient(pgx={"CYP2C19": "NM"}))
+    assert r["phenotypes"]["CYP2C19"]["phenoconverted"] is False
