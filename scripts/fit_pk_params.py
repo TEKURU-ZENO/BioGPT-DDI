@@ -70,7 +70,7 @@ def collapse(rows: List[dict]) -> Dict[Tuple[str, str], float]:
     return {k: math.exp(sum(map(math.log, vs)) / len(vs)) for k, vs in vals.items()}
 
 
-def fit(obs: Dict[Tuple[str, str], float], iterations: int = 50) -> dict:
+def _link(obs: Dict[Tuple[str, str], float]):
     inh_obs, ind_obs = [], []  # (victim, perp, enzyme, target)
     for (victim, perp), aucr in obs.items():
         if aucr > 1.05:
@@ -81,6 +81,62 @@ def fit(obs: Dict[Tuple[str, str], float], iterations: int = 50) -> dict:
             enz = link_enzyme(victim, perp, "induce")
             if enz:
                 ind_obs.append((victim, perp, enz, 1 / aucr - 1))
+    return inh_obs, ind_obs
+
+
+def _priors(victim: str, perp: str, enz: str, kind: str):
+    cr0 = pk_model.FM_SUBSTRATE[DRUGS[victim].sub[enz]][1]
+    if kind == "inhibit":
+        return cr0, 1 - 1 / pk_model.R_INHIBITOR[DRUGS[perp].inh[enz]][1]
+    return cr0, pk_model.E_INDUCER.get(DRUGS[perp].ind[enz], pk_model.E_INDUCER["moderate"])[1] - 1
+
+
+def predict(params: dict, victim: str, perp: str, enz: str, kind: str) -> float:
+    """AUCR from fitted parameters, falling back to class priors (mirrors api/ddi/pk_model.py)."""
+    cr0, x0 = _priors(victim, perp, enz, kind)
+    cr = (params.get("cr", {}).get(victim, {}).get(enz) or {}).get("value", cr0)
+    if kind == "inhibit":
+        ir = (params.get("ir", {}).get(perp, {}).get(enz) or {}).get("value", x0)
+        return 1 / (1 - cr * ir)
+    ic = (params.get("ic", {}).get(perp, {}).get(enz) or {}).get("value", x0)
+    return 1 / (1 + cr * ic)
+
+
+def _fold(key: Tuple[str, str], k: int) -> int:
+    import hashlib
+
+    return hashlib.sha256(f"cv:{key[0]}|{key[1]}".encode()).digest()[0] % k
+
+
+def cv_error(obs: Dict[Tuple[str, str], float], weight: Optional[float], k: int = 5) -> float:
+    """Mean |ln(pred/obs)| over k-fold cross-validation inside the given (calibration) observations."""
+    errs = []
+    for f in range(k):
+        train = {key: v for key, v in obs.items() if _fold(key, k) != f}
+        test = {key: v for key, v in obs.items() if _fold(key, k) == f}
+        params = fit(train, prior_weight=weight) if weight is not None else {}
+        inh_t, ind_t = _link(test)
+        for v, p, e, _ in inh_t:
+            errs.append(abs(math.log(predict(params, v, p, e, "inhibit") / test[(v, p)])))
+        for v, p, e, _ in ind_t:
+            errs.append(abs(math.log(predict(params, v, p, e, "induce") / test[(v, p)])))
+    return sum(errs) / len(errs) if errs else float("inf")
+
+
+WEIGHT_GRID = (0.25, 0.5, 1.0, 2.0, 4.0, 8.0, None)  # None = no fitting (class priors only)
+
+
+def select_weight(obs: Dict[Tuple[str, str], float]) -> Tuple[Optional[float], Dict[str, float]]:
+    scores = {("class" if w is None else str(w)): cv_error(obs, w) for w in WEIGHT_GRID}
+    best_w, best = None, scores["class"]
+    for w in WEIGHT_GRID[:-1]:  # a fitted weight must strictly beat the class model to be used
+        if scores[str(w)] < best - 1e-9:
+            best_w, best = w, scores[str(w)]
+    return best_w, scores
+
+
+def fit(obs: Dict[Tuple[str, str], float], prior_weight: float = PRIOR_WEIGHT, iterations: int = 50) -> dict:
+    inh_obs, ind_obs = _link(obs)
 
     cr0, ir0, ic0 = {}, {}, {}
     for v, _p, e, _ in inh_obs + ind_obs:
@@ -101,19 +157,19 @@ def fit(obs: Dict[Tuple[str, str], float], iterations: int = 50) -> dict:
             num[(v, e)] += u * ic[(p, e)]
             den[(v, e)] += ic[(p, e)] ** 2
         for k in cr:
-            cr[k] = _clip((num[k] + PRIOR_WEIGHT * cr0[k]) / (den[k] + PRIOR_WEIGHT), CR_BOUNDS)
+            cr[k] = _clip((num[k] + prior_weight * cr0[k]) / (den[k] + prior_weight), CR_BOUNDS)
         num, den = defaultdict(float), defaultdict(float)
         for v, p, e, t in inh_obs:
             num[(p, e)] += t * cr[(v, e)]
             den[(p, e)] += cr[(v, e)] ** 2
         for k in ir:
-            ir[k] = _clip((num[k] + PRIOR_WEIGHT * ir0[k]) / (den[k] + PRIOR_WEIGHT), IR_BOUNDS)
+            ir[k] = _clip((num[k] + prior_weight * ir0[k]) / (den[k] + prior_weight), IR_BOUNDS)
         num, den = defaultdict(float), defaultdict(float)
         for v, p, e, u in ind_obs:
             num[(p, e)] += u * cr[(v, e)]
             den[(p, e)] += cr[(v, e)] ** 2
         for k in ic:
-            ic[k] = _clip((num[k] + PRIOR_WEIGHT * ic0[k]) / (den[k] + PRIOR_WEIGHT), IC_BOUNDS)
+            ic[k] = _clip((num[k] + prior_weight * ic0[k]) / (den[k] + prior_weight), IC_BOUNDS)
 
     counts = defaultdict(int)
     for v, p, e, _ in inh_obs + ind_obs:
@@ -126,7 +182,7 @@ def fit(obs: Dict[Tuple[str, str], float], iterations: int = 50) -> dict:
             out[drug][enz] = {"value": round(val, 4), "n": counts[(name, drug, enz)]}
         return dict(out)
 
-    return {"method": "CR-IR alternating least squares with FDA class priors", "prior_weight": PRIOR_WEIGHT,
+    return {"method": "CR-IR alternating least squares with FDA class priors", "prior_weight": prior_weight,
             "n_inhibition": len(inh_obs), "n_induction": len(ind_obs),
             "cr": table("cr", cr), "ir": table("ir", ir), "ic": table("ic", ic)}
 
@@ -143,9 +199,20 @@ def main(argv=None) -> int:
         with p.open(newline="", encoding="utf-8") as fh:
             rows += list(csv.DictReader(fh))
     obs = {k: v for k, v in collapse(rows).items() if _split(*k, args.holdout_seed) == "calibration"}
-    params = fit(obs)
+    weight, scores = select_weight(obs)
+    if weight is None:
+        inh_obs, ind_obs = _link(obs)
+        params = {"method": "class priors retained: no fitted shrinkage beat them in cross-validation",
+                  "prior_weight": None, "n_inhibition": len(inh_obs), "n_induction": len(ind_obs),
+                  "cr": {}, "ir": {}, "ic": {}}
+    else:
+        params = fit(obs, prior_weight=weight)
     params.update({"fitted_on": f"calibration half, seed {args.holdout_seed}", "pairs": len(obs),
+                   "cv_mean_abs_log_error": {k: round(v, 4) for k, v in scores.items()},
                    "retrieved": date.today().isoformat()})
+    print("5-fold CV (mean |ln error|) by prior weight: " +
+          ", ".join(f"{k}={v:.3f}" for k, v in scores.items()) + f" -> selected {weight or 'class priors'}",
+          file=sys.stderr)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(params, indent=1, sort_keys=True), encoding="utf-8")
     print(f"fitted on {len(obs)} calibration pairs ({params['n_inhibition']} inhibition, "

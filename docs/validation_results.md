@@ -241,3 +241,49 @@ omeprazole remains a curated Major interaction.
 - **Curation worklist.** The evaluator now ranks the drugs most often involved in reference Major or
   Contraindicated pairs that the engine grades lower. The workflow also logs the names of the drugs added from the
   FDA table, so the next round of rules targets the largest gaps.
+
+## Run 6: 2026-11-02 (commit `461fbf3`, [run 41443538474](https://github.com/TEKURU-ZENO/BioGPT-DDI/actions/runs/41443538474))
+
+The reference set grew slightly: the lexicon covers 330 of 1,939 DDInter drugs (17.0%), with 16,548 DDInter pairs
+and 732 label AUC observations. Compare with run 5's "+ FDA roles" column with that caveat.
+
+**Severity (with FDA-table roles), effect of the label-based CYP3A rules:**
+
+| Metric | Run 5 | Run 6 |
+|---|---|---|
+| DDInter coverage, excluding "Unknown" | 27.4% | 27.6% |
+| DDInter Major pairs detected | 48.6% | 49.7% |
+| DDInter Major pairs graded Major | 29.4% | **31.6%** (29.9–33.4%) |
+| Weighted kappa | 0.136 | 0.141 |
+| False alerts on sampled negatives | 9.3% | 9.7% |
+| KEGG contraindicated pairs detected | 67.4% | 68.3% |
+| KEGG contraindicated pairs graded Contraindicated | 20.4% | **27.3%** (23.4–31.4%) |
+
+**Exposure, CR-IR fitting (negative result).** The fit used 187 calibration pairs, but only 54 could be linked to
+an enzyme (45 inhibition, 9 induction). It produced CR for 36 victims, IR for 19 inhibitors and IC for 3 inducers.
+
+| GMFE (within 2-fold) | Calibration half | **Holdout half** |
+|---|---|---|
+| FDA roles, class parameters | 1.76 (76.8%) | **1.70** (71.7%) |
+| FDA roles + fitted parameters | 1.47 (82.1%) | **1.84** (73.6%) |
+
+The fit improved the data it was trained on but **worsened the holdout**: it overfitted, with mostly one observation
+per parameter and too little shrinkage. Fitted parameters are therefore not used by default; the file is generated
+only in CI and is git-ignored.
+
+**Fixed after run 6:**
+- The shrinkage strength is now chosen by 5-fold cross-validation *inside* the calibration half, and "no fitting"
+  (class values) is one of the options. Parameters are written only if a fitted strength beats the class model in
+  cross-validation. The holdout remains the judge.
+- The FDA table has combination rows such as "lopinavir and ritonavir", which the import was turning into a single
+  "drug". They now map to their ingredients.
+
+**Curation worklist** (DDInter Major/Contraindicated pairs graded lower by the engine, drugs most often involved):
+- Oncology kinase inhibitors: crizotinib, ceritinib, vemurafenib, ivosidenib, dasatinib, venetoclax, ibrutinib,
+  lorlatinib, entrectinib, selpercatinib. These are mostly QT and CYP3A interactions.
+- Teriflunomide, eliglustat, hydrocodone, erythromycin, cilostazol, tacrolimus, ivacaftor, tamoxifen,
+  hydroxychloroquine, apalutamide/enzalutamide, bupropion, ondansetron.
+
+The KEGG worklist is dominated by ticagrelor, rifampin, colchicine and tadalafil. There, Japanese labels
+contraindicate what US labels grade as "avoid" or a dose limit, so these are largely jurisdiction differences, not
+errors.

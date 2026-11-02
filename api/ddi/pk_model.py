@@ -68,6 +68,8 @@ def reload() -> None:
 def _fitted(table: str, drug: Optional[str], enzyme: str) -> Optional[float]:
     entry = (fitted_params().get(table) or {}).get(drug or "", {}).get(enzyme)
     return float(entry["value"]) if entry else None
+
+
 CYP_ENZYMES = {"CYP3A4", "CYP2C9", "CYP2C19", "CYP2D6", "CYP1A2", "CYP2C8", "CYP2B6"}
 
 

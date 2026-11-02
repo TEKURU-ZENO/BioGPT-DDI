@@ -104,3 +104,17 @@ def test_generated_roles_can_be_disabled(tmp_path):
     off = subprocess.run([sys.executable, "-c", code], env={**env, "DDI_DISABLE_GENERATED_ROLES": "1"}, cwd=root,
                          capture_output=True, text=True).stdout
     assert on.strip() == "True True" and off.strip() == "False False"
+
+
+def test_combination_rows_map_to_ingredients_not_a_new_drug():
+    drugs = copy.deepcopy(DRUGS)
+    synonyms = {}
+    stats = merge_roles(drugs, {"roles": {
+        "lopinavir and ritonavir": {"sub": {}, "inh": {"CYP3A4": "strong"}, "ind": {}},
+        "elbasvir and grazoprevir": {"sub": {"CYP3A4": "sensitive"}, "inh": {}, "ind": {}},
+    }}, synonyms=synonyms)
+    assert "lopinavir and ritonavir" not in drugs
+    assert synonyms["lopinavir and ritonavir"] == ["lopinavir", "ritonavir"]
+    assert drugs["lopinavir"].inh == {}                    # ritonavir already carries the strong inhibition
+    assert drugs["elbasvir"].sub == {"CYP3A4": "sensitive"}  # no known component: roles kept on components
+    assert sorted(stats["combinations"]) == ["elbasvir and grazoprevir", "lopinavir and ritonavir"]

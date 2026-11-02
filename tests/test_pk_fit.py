@@ -69,3 +69,21 @@ def test_fitting_improves_holdout_error(params_path, monkeypatch):
     _fit(params_path, seed=3)
     fitted = evaluate_pk.evaluate(_rows(), holdout_seed=3)["holdout"]["gmfe"]
     assert fitted < base
+
+
+def test_cross_validation_keeps_class_priors_when_data_has_no_signal(tmp_path):
+    # Observations exactly equal to the class-model predictions: fitting cannot help, so nothing is written.
+    obs = {}
+    for v in ("midazolam", "triazolam", "simvastatin", "buspirone"):
+        for p in ("ketoconazole", "itraconazole", "diltiazem", "erythromycin"):
+            enz = fit_pk_params.link_enzyme(v, p, "inhibit")
+            obs[(v, p)] = fit_pk_params.predict({}, v, p, enz, "inhibit")
+    weight, scores = fit_pk_params.select_weight(obs)
+    assert weight is None and scores["class"] < 1e-9
+
+
+def test_predict_matches_engine_estimate(params_path):
+    _fit(params_path, seed=3)
+    params = json.loads(params_path.read_text())
+    est = analyze_pair("Buspirone", "Itraconazole")["findings"][0]["pk_estimate"]
+    assert abs(fit_pk_params.predict(params, "buspirone", "itraconazole", "CYP3A4", "inhibit") - est["auc_ratio"]) < 0.01

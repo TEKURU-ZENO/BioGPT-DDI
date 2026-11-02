@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, FrozenSet, Optional
@@ -348,7 +349,7 @@ def merge_roles(drugs: Dict[str, DrugProfile], data: dict, synonyms: Optional[Di
     for pharmacist review. Unknown drugs become mechanism-only profiles.
     """
     synonyms = SYNONYMS if synonyms is None else synonyms
-    added, enriched, conflicts = [], [], []
+    added, enriched, conflicts, combinations = [], [], [], []
     for raw_name, roles in (data.get("roles") or {}).items():
         target = synonyms.get(raw_name, raw_name)
         if isinstance(target, list):
@@ -356,6 +357,25 @@ def merge_roles(drugs: Dict[str, DrugProfile], data: dict, synonyms: Optional[Di
         sub = {e: v for e, v in (roles.get("sub") or {}).items() if v in _SUB_LEVELS}
         inh = {e: v for e, v in (roles.get("inh") or {}).items() if v in _MOD_LEVELS}
         ind = {e: v for e, v in (roles.get("ind") or {}).items() if v in ("strong", "moderate")}
+        parts = [x.strip() for x in re.split(r"\s+and\s+|\s*/\s*|\s*\+\s*", target) if x.strip()]
+        if len(parts) > 1:
+            # Combination product (e.g. "lopinavir and ritonavir"): never create a profile for the combined name.
+            # Map it to its ingredients; a component without a profile gets the combination's roles so the
+            # product remains checkable (e.g. a boosted protease inhibitor keeps its strong CYP3A inhibition).
+            ings = [synonyms.get(x, x) for x in parts]
+            ings = [x for x in ings if isinstance(x, str)]
+            known = [x for x in ings if x in drugs]
+            for x in ings:
+                if x not in drugs and (sub or inh or ind) and not known:
+                    drugs[x] = DrugProfile(name=x, tags=frozenset({"fda_cyp_table"}), sub=dict(sub), inh=dict(inh),
+                                           ind=dict(ind))
+                    added.append(x)
+                elif x not in drugs:
+                    drugs[x] = DrugProfile(name=x, tags=frozenset({"fda_cyp_table"}))
+                    added.append(x)
+            synonyms.setdefault(target, ings)
+            combinations.append(target)
+            continue
         if target in drugs:
             prof, changed = drugs[target], False
             for mine, theirs, label in ((prof.sub, sub, "substrate"), (prof.inh, inh, "inhibitor"),
@@ -372,7 +392,8 @@ def merge_roles(drugs: Dict[str, DrugProfile], data: dict, synonyms: Optional[Di
         elif sub or inh or ind:
             drugs[target] = DrugProfile(name=target, tags=frozenset({"fda_cyp_table"}), sub=sub, inh=inh, ind=ind)
             added.append(target)
-    return {"added": sorted(added), "enriched": sorted(enriched), "conflicts": conflicts}
+    return {"added": sorted(added), "enriched": sorted(enriched), "conflicts": conflicts,
+            "combinations": sorted(combinations)}
 
 
 def _generated_roles_path() -> Path:
@@ -529,6 +550,7 @@ def _load_generated_roles() -> None:
     stats = merge_roles(DRUGS, data)
     GENERATED_ROLES.update({"loaded": True, "source": data.get("source"), "retrieved": data.get("retrieved"),
                             "added": len(stats["added"]), "added_names": stats["added"],
+                            "combinations": stats["combinations"],
                             "enriched": len(stats["enriched"]),
                             "conflicts": stats["conflicts"]})
 
