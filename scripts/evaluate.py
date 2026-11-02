@@ -197,6 +197,7 @@ def evaluate_reference(rows: List[dict], scale: Optional[str] = None) -> dict:
         by_level[level] = entry
 
     graded = [x for x in records if _harmonise(x["ref"], scale) is not None]
+    graded_pos = [x for x in positives if x["ref"] != "Unknown"]
     pairs_o = [(_harmonise(x["ref"], scale), _harmonise(x["eng"], scale) or 0) for x in graded]
     kappa = lambda ps: weighted_kappa([a for a, _ in ps], [b for _, b in ps], k)
     gross = [x for x, (a, b) in zip(graded, pairs_o) if a - b >= 2]
@@ -205,11 +206,15 @@ def evaluate_reference(rows: List[dict], scale: Optional[str] = None) -> dict:
         "pairs": len(records),
         "coverage": cov(positives),
         "coverage_ci": bootstrap_ci(positives, cov),
+        "coverage_graded": cov(graded_pos),
+        "coverage_graded_ci": bootstrap_ci(graded_pos, cov),
         "by_level": by_level,
         "graded_pairs": len(graded),
         "exact_agreement": _mean([float(a == b) for a, b in pairs_o]),
-        "weighted_kappa": kappa(pairs_o),
-        "weighted_kappa_ci": bootstrap_ci(pairs_o, kappa),
+        # Kappa needs at least two reference grades (KEGG grades only CI, so it is undefined there).
+        "weighted_kappa": kappa(pairs_o) if len({a for a, _ in pairs_o}) >= 2 else float("nan"),
+        "weighted_kappa_ci": bootstrap_ci(pairs_o, kappa) if len({a for a, _ in pairs_o}) >= 2
+        else (float("nan"), float("nan")),
         "under_calls": sum(b < a for a, b in pairs_o),
         "gross_under_calls": len(gross),
         "over_calls": sum(b > a for a, b in pairs_o),
@@ -250,11 +255,15 @@ def report(gold: dict, refs: Dict[str, dict]) -> str:
               "| Metric | Value (95% bootstrap CI) |", "|---|---|",
               f"| Pairs (both drugs in lexicon) | {r['pairs']} |",
               f"| Coverage: interactions with any engine finding | {_pct(r['coverage'])}{_ci(r['coverage_ci'])} |",
+              f"| Coverage excluding severity-'Unknown' records | {_pct(r['coverage_graded'])}"
+              f"{_ci(r['coverage_graded_ci'])} |",
               f"| Graded pairs | {r['graded_pairs']} |",
               f"| Exact agreement | {_pct(r['exact_agreement'])} |",
-              f"| Quadratic-weighted kappa | {r['weighted_kappa']:.3f}"
-              + (f" ({r['weighted_kappa_ci'][0]:.3f}-{r['weighted_kappa_ci'][1]:.3f})"
-                 if r['weighted_kappa_ci'][0] == r['weighted_kappa_ci'][0] else "") + " |",
+              ("| Quadratic-weighted kappa | n/a (reference has a single grade) |"
+               if r['weighted_kappa'] != r['weighted_kappa'] else
+               f"| Quadratic-weighted kappa | {r['weighted_kappa']:.3f}"
+               + (f" ({r['weighted_kappa_ci'][0]:.3f}-{r['weighted_kappa_ci'][1]:.3f})"
+                  if r['weighted_kappa_ci'][0] == r['weighted_kappa_ci'][0] else "") + " |"),
               f"| Under-calls / gross under-calls (>= 2 grades) | {r['under_calls']} / {r['gross_under_calls']} |",
               f"| Over-calls | {r['over_calls']} |",
               f"| False-alert rate on negatives | {_pct(r['false_alert_rate'])} (n={r['negatives']}) |", "",

@@ -65,7 +65,7 @@ jobs:
       - name: Expand mechanism layer from FDA CYP tables
         id: fda
         continue-on-error: true
-        run: python -m scripts.import_fda_cyp_table
+        run: python -m scripts.import_fda_cyp_table --debug
 
       - name: Evaluate - with FDA CYP roles merged
         if: steps.fda.outcome == 'success'

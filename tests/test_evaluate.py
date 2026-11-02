@@ -80,3 +80,17 @@ def test_report_renders_reference_section(tmp_path):
     text = out.read_text()
     assert "Independent reference: ddinter" in text and "Coverage" in text
     assert "Gross under-calls (first 25): Amoxicillin + Metformin (ref Moderate, engine None known)" in text
+
+
+def test_kappa_undefined_for_single_grade_reference():
+    rows = _rows(("Simvastatin", "Clarithromycin", "Contraindicated"), ("Warfarin", "Fluconazole", "Contraindicated"))
+    r = evaluate.evaluate_reference(rows)
+    assert r["weighted_kappa"] != r["weighted_kappa"]  # NaN, reported as n/a
+    assert "n/a (reference has a single grade)" in evaluate.report(
+        evaluate.evaluate_gold([]), {"kegg": r})
+
+
+def test_coverage_excluding_unknown_grade():
+    rows = _rows(("Warfarin", "Fluconazole", "Major"), ("Amoxicillin", "Metformin", "Unknown"))
+    r = evaluate.evaluate_reference(rows)
+    assert r["coverage"] == 0.5 and r["coverage_graded"] == 1.0

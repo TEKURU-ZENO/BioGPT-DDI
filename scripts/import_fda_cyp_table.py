@@ -129,25 +129,52 @@ def clean_names(cell: str) -> List[str]:
     return out
 
 
-def parse_html(html: str) -> Dict[str, Dict[str, Dict[str, str]]]:
+def _find_header(rows: List[List[str]], context: str) -> Tuple[int, List[Optional[Tuple[str, str]]]]:
+    """Pick the best header among the first rows (tables may have a title or grouped header row first)."""
+    best_i, best = -1, []
+    for i, row in enumerate(rows[:3]):
+        kinds = [_column_kind(h, context) for h in row]
+        if sum(k is not None for k in kinds) > sum(k is not None for k in best):
+            best_i, best = i, kinds
+    return best_i, best
+
+
+def parse_html(html: str, debug: bool = False) -> Dict[str, Dict[str, Dict[str, str]]]:
     p = _Tables()
     p.feed(html)
     roles: Dict[str, Dict[str, Dict[str, str]]] = {}
     rank = {"sensitive": 2, "moderate": 1, "strong": 3, "weak": 0}
-    for context, rows in p.tables:
+    for t_idx, (context, rows) in enumerate(p.tables):
+        if debug:
+            print(f"[table {t_idx}] context={context[:90]!r} rows={len(rows)}", file=sys.stderr)
+            for r in rows[:3]:
+                print(f"    {[c[:40] for c in r][:6]}", file=sys.stderr)
         if len(rows) < 2:
             continue
-        header = rows[0]
-        kinds = [_column_kind(h, context) for h in header]
-        if not any(kinds):
+        h_idx, kinds = _find_header(rows, context)
+        if h_idx < 0:
+            if debug:
+                print("    -> skipped: no recognised header", file=sys.stderr)
             continue
-        for row in rows[1:]:
+        if debug:
+            print(f"    -> header row {h_idx}: {kinds}", file=sys.stderr)
+        prev_enz = None
+        for row in rows[h_idx + 1:]:
             if not row:
                 continue
             enz = _enzyme(row[0])
-            if not enz:
+            if enz:
+                cells, row_kinds = row, kinds
+            elif prev_enz and len(row) == len(kinds) - 1:
+                # enzyme cell spans several rows (rowspan): this row has only the category cells
+                enz, cells, row_kinds = prev_enz, [""] + row, kinds
+            else:
                 continue
-            for idx, (cell, kind) in enumerate(zip(row, kinds)):
+            prev_enz = enz
+            if len(row_kinds) != len(cells):  # tolerate ragged rows by aligning on the right
+                row_kinds = (row_kinds[-len(cells):] if len(cells) < len(row_kinds)
+                             else row_kinds + [None] * (len(cells) - len(row_kinds)))
+            for idx, (cell, kind) in enumerate(zip(cells, row_kinds)):
                 if idx == 0 or not kind:
                     continue
                 field, level = kind
@@ -163,6 +190,7 @@ def main(argv=None) -> int:
     ap.add_argument("--url", action="append")
     ap.add_argument("--html", type=Path, action="append", default=[])
     ap.add_argument("--out", type=Path, default=DEFAULT_DATA_DIR / "fda_cyp_roles.json")
+    ap.add_argument("--debug", action="store_true", help="print each table's structure to stderr")
     args = ap.parse_args(argv)
 
     pages = [(str(p), p.read_text(encoding="utf-8")) for p in args.html]
@@ -178,7 +206,7 @@ def main(argv=None) -> int:
                     print(f"  ! {url}: {exc}", file=sys.stderr)
     roles: Dict[str, Dict[str, Dict[str, str]]] = {}
     for _, html in pages:
-        for name, r in parse_html(html).items():
+        for name, r in parse_html(html, debug=args.debug).items():
             dst = roles.setdefault(name, {"sub": {}, "inh": {}, "ind": {}})
             for field in ("sub", "inh", "ind"):
                 for enz, level in r[field].items():

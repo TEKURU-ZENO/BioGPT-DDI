@@ -1,5 +1,7 @@
 # Validation
 
+Latest measured results: [`validation_results.md`](validation_results.md).
+
 BioGPT-DDI is validated at three levels. Only the second and third use evidence this project did not write.
 
 ## 1. Internal regression set (authored here)

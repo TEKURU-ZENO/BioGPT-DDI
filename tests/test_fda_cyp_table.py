@@ -48,3 +48,17 @@ def test_new_mechanism_only_drug_participates_in_engine(monkeypatch):
     r = engine.analyze_pair("Ibrutinib", "Itraconazole")
     assert r["severity"] == "Major"
     assert r["findings"][0]["pk_estimate"]["auc_ratio"] >= 5
+
+
+def test_title_row_above_header_and_rowspan_enzyme():
+    html = """<table>
+    <tr><td colspan="4">Table 2-2. Examples of clinical inhibitors for P450-mediated metabolisms</td></tr>
+    <tr><th>Enzyme</th><th>Strong inhibitors</th><th>Moderate inhibitors</th><th>Weak inhibitors</th></tr>
+    <tr><td rowspan="2">CYP2D6</td><td>bupropion, paroxetine</td><td>duloxetine</td><td>cimetidine</td></tr>
+    <tr><td>quinidine</td><td>mirabegron</td><td></td></tr>
+    </table>"""
+    roles = parse_html(html)
+    assert roles["bupropion"]["inh"] == {"CYP2D6": "strong"}
+    assert roles["quinidine"]["inh"] == {"CYP2D6": "strong"}       # continuation row of a rowspan
+    assert roles["mirabegron"]["inh"] == {"CYP2D6": "moderate"}
+    assert roles["cimetidine"]["inh"] == {"CYP2D6": "weak"}
