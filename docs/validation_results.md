@@ -227,3 +227,17 @@ enriched, and 5 conflicts with hand-curated roles (resolved below). Lexicon cove
 
 Consequence: omeprazole no longer phenoconverts CYP2C19, so tests and the README example were updated. Clopidogrel +
 omeprazole remains a curated Major interaction.
+
+### Changes made in response to run 5 (measured from run 6 onwards)
+
+- **Label-based CYP3A restrictions.** 15 drugs were added whose US labels contraindicate or advise avoiding CYP3A
+  perpetrators: lurasidone, naloxegol, lomitapide, tolvaptan, conivaptan, ivabradine, ranolazine, alfuzosin,
+  eletriptan, flibanserin, pimozide, ergotamine, dihydroergotamine, avanafil and suvorexant. Eplerenone was also
+  tagged. The rule is keyed on the perpetrator's CYP3A *strength*, not a name list, so strong inhibitors added by
+  the FDA import are covered automatically.
+- **Drug-specific exposure parameters.** The CR-IR method is fitted on the calibration half of the FDA-label
+  observations. On an illustrative fixture it lowered the holdout GMFE in all five tested splits (e.g.
+  1.88 → 1.45). Run 6 will report the real FDA-label holdout.
+- **Curation worklist.** The evaluator now ranks the drugs most often involved in reference Major or
+  Contraindicated pairs that the engine grades lower. The workflow also logs the names of the drugs added from the
+  FDA table, so the next round of rules targets the largest gaps.

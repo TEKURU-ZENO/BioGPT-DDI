@@ -184,9 +184,9 @@ strongest evidence. The learned-layer pipeline is tested on synthetic data only,
 ### Known limitations
 
 - The knowledge base covers about 230 ingredients. Anything outside it is reported as unknown, never as safe.
-- PK estimates are class-level, not drug-specific (no curated Ki or fm), so very strong interactions are
-  under-predicted (every strong-inhibitor + sensitive-substrate pair is estimated at ~5x). `scripts/evaluate_pk.py`
-  quantifies this. Transporter effects are not quantified.
+- PK estimates are class-level unless drug-specific CR-IR parameters have been fitted
+  (`scripts/fit_pk_params.py`, calibration half only). Class-level estimates under-predict very sensitive
+  substrates. `scripts/evaluate_pk.py` quantifies both. Transporter effects are not quantified.
 - Dose, hepatic function and VKORC1/HLA genotypes are not modelled.
 - The CDS Hooks service does not verify the EHR's JWT. A deployment must add JWT verification and restrict CORS.
 - Not clinically validated.

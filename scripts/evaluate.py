@@ -200,6 +200,11 @@ def evaluate_reference(rows: List[dict], scale: Optional[str] = None) -> dict:
     graded_pos = [x for x in positives if x["ref"] != "Unknown"]
     pairs_o = [(_harmonise(x["ref"], scale), _harmonise(x["eng"], scale) or 0) for x in graded]
     kappa = lambda ps: weighted_kappa([a for a, _ in ps], [b for _, b in ps], k)
+    # Reference Major/Contraindicated pairs the engine grades lower: the curation worklist.
+    high = _harmonise("Major", scale)
+    undergraded_high = [(x["drug1"], x["drug2"], x["ref"], x["eng"]) for x in graded
+                        if (_harmonise(x["ref"], scale) or 0) >= high
+                        and (_harmonise(x["eng"], scale) or 0) < (_harmonise(x["ref"], scale) or 0)]
     gross = [x for x, (a, b) in zip(graded, pairs_o) if a - b >= 2]
     return {
         "scale": scale,
@@ -223,6 +228,8 @@ def evaluate_reference(rows: List[dict], scale: Optional[str] = None) -> dict:
         "worst_under_calls": [(x["drug1"], x["drug2"], x["ref"], x["eng"]) for x in gross[:25]],
         "missed_examples": [(x["drug1"], x["drug2"], x["ref"]) for x in positives if not x["found"]
                             and x["ref"] in ("Contraindicated", "Major")][:25],
+        "undergraded_high": undergraded_high,
+        "undergraded_by_drug": Counter(d for x in undergraded_high for d in (x[0], x[1])).most_common(30),
     }
 
 
@@ -276,6 +283,10 @@ def report(gold: dict, refs: Dict[str, dict]) -> str:
         if r["missed_examples"]:
             L += ["Missed high-severity pairs (first 25): " +
                   ", ".join(f"{a} + {b} ({s})" for a, b, s in r["missed_examples"]), ""]
+        if r["undergraded_by_drug"]:
+            L += [f"High-severity pairs graded lower by the engine: {len(r['undergraded_high'])}. "
+                  "Drugs most often involved (curation worklist): " +
+                  ", ".join(f"{d} ({n})" for d, n in r["undergraded_by_drug"]), ""]
         if r["worst_under_calls"]:
             L += ["Gross under-calls (first 25): " +
                   ", ".join(f"{a} + {b} (ref {s}, engine {e})" for a, b, s, e in r["worst_under_calls"]), ""]

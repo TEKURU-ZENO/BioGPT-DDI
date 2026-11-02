@@ -88,3 +88,12 @@ Tacrolimus,Amiloride,interaction,Major,tacrolimus label: avoid potassium-sparing
 Bupropion,Tramadol,interaction,Major,bupropion label: seizure threshold (added after validation run 1)
 Acetaminophen,Alcohol,interaction,Moderate,acetaminophen liver warning (added after validation run 1)
 Methotrexate,Aspirin,interaction,Moderate,methotrexate label: salicylates (added after validation run 1)
+Lurasidone,Ketoconazole,interaction,Contraindicated,lurasidone label section 4: strong CYP3A inhibitors
+Lurasidone,Rifampin,interaction,Contraindicated,lurasidone label section 4: strong CYP3A inducers
+Lomitapide,Diltiazem,interaction,Contraindicated,lomitapide label section 4: moderate CYP3A inhibitors
+Ivabradine,Clarithromycin,interaction,Contraindicated,ivabradine label section 4: strong CYP3A inhibitors
+Ivabradine,Verapamil,interaction,Major,ivabradine label: avoid moderate CYP3A inhibitors
+Ranolazine,Carbamazepine,interaction,Contraindicated,ranolazine label section 4: CYP3A inducers
+Eletriptan,Clarithromycin,interaction,Contraindicated,eletriptan label section 4: potent CYP3A4 inhibitors
+Eplerenone,Ketoconazole,interaction,Contraindicated,eplerenone label section 4: strong CYP3A inhibitors
+Suvorexant,Itraconazole,interaction,Major,suvorexant label: not recommended with strong CYP3A inhibitors

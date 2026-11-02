@@ -43,6 +43,7 @@ jobs:
           from api.ddi.lexicon import GENERATED_ROLES as g
           out = {k: (len(v) if isinstance(v, list) else v) for k, v in g.items()}
           out["conflict_examples"] = g.get("conflicts", [])[:40]
+          out["added_names"] = g.get("added_names", [])
           print(json.dumps(out, indent=1))
           PY
 
@@ -67,9 +68,18 @@ jobs:
         continue-on-error: true
         run: python -m scripts.references.pk_labels --out eval/references/pk_labels.csv
 
+      - name: Fit drug-specific PK parameters (calibration half only)
+        id: pkfit
+        continue-on-error: true
+        run: |
+          if [ -s eval/references/pk_labels.csv ]; then
+            python -m scripts.fit_pk_params eval/references/pk_labels.csv --holdout-seed 7
+          fi
+
       - name: Evaluate - hand-curated lexicon only (FDA-table roles disabled)
         env:
           DDI_DISABLE_GENERATED_ROLES: "1"
+          DDI_DISABLE_PK_FIT: "1"
         run: |
           refs=""
           for f in ddinter kegg onc; do
@@ -89,13 +99,20 @@ jobs:
           done
           python -m scripts.evaluate $refs --out eval-with-fda-roles.md --min-critical-recall 0
           if [ -s eval/references/pk_labels.csv ]; then
-            python -m scripts.evaluate_pk eval/references/pk_labels.csv --holdout-seed 7 --out eval-pk-with-fda-roles.md
+            DDI_DISABLE_PK_FIT=1 python -m scripts.evaluate_pk eval/references/pk_labels.csv --holdout-seed 7 --out eval-pk-with-fda-roles.md
+          fi
+
+      - name: Evaluate PK - with fitted CR-IR parameters (judge on the holdout half)
+        if: steps.pkfit.outcome == 'success'
+        run: |
+          if [ -s api/ddi/data/pk_crir.json ]; then
+            python -m scripts.evaluate_pk eval/references/pk_labels.csv --holdout-seed 7 --out eval-pk-fitted.md
           fi
 
       - name: Job summary
         if: always()
         run: |
-          for f in eval-baseline.md eval-pk.md eval-with-fda-roles.md eval-pk-with-fda-roles.md; do
+          for f in eval-baseline.md eval-pk.md eval-with-fda-roles.md eval-pk-with-fda-roles.md eval-pk-fitted.md; do
             [ -f "$f" ] && { echo "<details><summary>$f</summary>"; echo; cat "$f"; echo "</details>"; } >> "$GITHUB_STEP_SUMMARY"
           done
           [ -f fda-roles-summary.json ] && { echo '```json'; cat fda-roles-summary.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
@@ -111,3 +128,4 @@ jobs:
             fda-roles-summary.json
             eval/references/*.csv
             api/ddi/data/fda_cyp_roles.json
+            api/ddi/data/pk_crir.json

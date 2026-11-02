@@ -244,7 +244,7 @@ _RAW: Dict[str, dict] = {
     "sacubitril": _d("neprilysin_inhibitor"),
     "aliskiren": _d("renin_inhibitor", "raas"),
     "spironolactone": _d("k_sparing", "k_retaining", "diuretic"),
-    "eplerenone": _d("k_sparing", "k_retaining", "diuretic", sub={CYP3A4: S}),
+    "eplerenone": _d("k_sparing", "k_retaining", "diuretic", "ci3a_strong_inh", sub={CYP3A4: S}),
     "amiloride": _d("k_sparing", "k_retaining", "diuretic"),
     "triamterene": _d("k_sparing", "k_retaining", "diuretic"),
     "potassium chloride": _d("potassium"),
@@ -299,6 +299,26 @@ _RAW: Dict[str, dict] = {
     "febuxostat": _d("xanthine_oxidase_inhibitor"),
     "colchicine": _d("antigout", sub={CYP3A4: M, PGP: S}, nti=True),
     "tamoxifen": _d("serm", prodrug=CYP2D6),
+    # ---------------------------------------------------------------- labels restricting CYP3A co-medication
+    # Tags record what each US label says about CYP3A perpetrators (see LABEL_CYP3A in api/ddi/engine.py):
+    # ci3a_strong_inh / ci3a_moderate_inh = contraindicated with strong (or moderate+strong) inhibitors,
+    # avoid3a_* = "avoid / do not use / not recommended", *_ind = the same for inducers.
+    "lurasidone": _d("antipsychotic", "cns_depressant", "ci3a_strong_inh", "ci3a_strong_ind", sub={CYP3A4: S}),
+    "naloxegol": _d("pamora", "ci3a_strong_inh", sub={CYP3A4: S}),
+    "lomitapide": _d("mtp_inhibitor", "ci3a_moderate_inh", sub={CYP3A4: S}),
+    "tolvaptan": _d("vasopressin_antagonist", "ci3a_strong_inh", "avoid3a_strong_ind", sub={CYP3A4: S}),
+    "conivaptan": _d("vasopressin_antagonist", "ci3a_strong_inh", sub={CYP3A4: S}, inh={CYP3A4: STRONG}),
+    "ivabradine": _d("if_channel_blocker", "bradycardic", "ci3a_strong_inh", "avoid3a_moderate_inh",
+                     "avoid3a_strong_ind", sub={CYP3A4: M}),
+    "ranolazine": _d("antianginal", "ci3a_strong_inh", "ci3a_strong_ind", sub={CYP3A4: M}),
+    "alfuzosin": _d("alpha_blocker", "ci3a_strong_inh", sub={CYP3A4: M}),
+    "eletriptan": _d("triptan", "serotonergic", "ci3a_strong_inh", sub={CYP3A4: S}),
+    "flibanserin": _d("cns_depressant", "ci3a_moderate_inh", sub={CYP3A4: S}),
+    "pimozide": _d("antipsychotic", "qt_known", "ci3a_strong_inh", sub={CYP3A4: M}),
+    "ergotamine": _d("ergot", "ci3a_strong_inh", sub={CYP3A4: S}),
+    "dihydroergotamine": _d("ergot", "ci3a_strong_inh", sub={CYP3A4: S}),
+    "avanafil": _d("pde5_inhibitor", "avoid3a_strong_inh", sub={CYP3A4: S}),
+    "suvorexant": _d("orexin_antagonist", "cns_depressant", "avoid3a_strong_inh", sub={CYP3A4: S}),
     # co-ingredients of combination products (no interaction-relevant flags yet)
     "ezetimibe": _d("cholesterol_absorption_inhibitor"),
     "clavulanate": _d("beta_lactamase_inhibitor"),
@@ -462,6 +482,11 @@ SYNONYMS: Dict[str, object] = {
     "prilosec": "omeprazole", "losec": "omeprazole", "nexium": "esomeprazole", "protonix": "pantoprazole",
     "prevacid": "lansoprazole", "aciphex": "rabeprazole", "pepcid": "famotidine",
     "vitamin k": "phytonadione", "vitamin k1": "phytonadione", "mephyton": "phytonadione",
+    "latuda": "lurasidone", "movantik": "naloxegol", "juxtapid": "lomitapide", "samsca": "tolvaptan",
+    "jynarque": "tolvaptan", "vaprisol": "conivaptan", "corlanor": "ivabradine", "ranexa": "ranolazine",
+    "uroxatral": "alfuzosin", "relpax": "eletriptan", "addyi": "flibanserin", "orap": "pimozide",
+    "ergomar": "ergotamine", "migranal": "dihydroergotamine", "d.h.e. 45": "dihydroergotamine",
+    "dhe": "dihydroergotamine", "trudhesa": "dihydroergotamine", "stendra": "avanafil", "belsomra": "suvorexant",
     "sudafed": "pseudoephedrine", "vitamin c": "ascorbic acid", "vitamin d": "cholecalciferol",
     "vitamin d3": "cholecalciferol", "vitamin b12": "cyanocobalamin", "folate": "folic acid",
     "fish oil": "omega-3 fatty acids", "omega 3": "omega-3 fatty acids", "grapefruit": "grapefruit juice",
@@ -503,7 +528,8 @@ def _load_generated_roles() -> None:
         return
     stats = merge_roles(DRUGS, data)
     GENERATED_ROLES.update({"loaded": True, "source": data.get("source"), "retrieved": data.get("retrieved"),
-                            "added": len(stats["added"]), "enriched": len(stats["enriched"]),
+                            "added": len(stats["added"]), "added_names": stats["added"],
+                            "enriched": len(stats["enriched"]),
                             "conflicts": stats["conflicts"]})
 
 

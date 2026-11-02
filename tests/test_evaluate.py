@@ -94,3 +94,11 @@ def test_coverage_excluding_unknown_grade():
     rows = _rows(("Warfarin", "Fluconazole", "Major"), ("Amoxicillin", "Metformin", "Unknown"))
     r = evaluate.evaluate_reference(rows)
     assert r["coverage"] == 0.5 and r["coverage_graded"] == 1.0
+
+
+def test_curation_worklist_counts_undergraded_high_severity_drugs():
+    rows = _rows(("Sertraline", "Ibuprofen", "Major"), ("Sertraline", "Aspirin", "Major"),
+                 ("Warfarin", "Fluconazole", "Major"))
+    r = evaluate.evaluate_reference(rows)
+    assert len(r["undergraded_high"]) == 2           # SSRI pairs graded Moderate
+    assert r["undergraded_by_drug"][0] == ("Sertraline", 2)

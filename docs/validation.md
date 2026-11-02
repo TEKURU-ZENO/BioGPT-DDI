@@ -49,8 +49,13 @@ Metrics:
 - FDA magnitude-category agreement.
 - Coverage of observed interactions.
 
-`--holdout-seed` splits pairs into calibration and holdout halves. Tune any drug-specific parameters on the
-calibration half only.
+`--holdout-seed` splits pairs into calibration and holdout halves. `scripts/fit_pk_params.py` fits
+drug-specific parameters with the CR-IR method (Ohno 2007; Hisaka 2009) on the **calibration half only**:
+- a contribution ratio (fm) per victim drug,
+- an inhibition ratio or induction capacity per perpetrator,
+- each shrunk towards its FDA class value.
+
+The workflow then reports exposure accuracy with and without the fitted parameters; judge it on the holdout half.
 
 ## 4. Breadth
 

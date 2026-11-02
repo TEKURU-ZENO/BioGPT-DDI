@@ -20,6 +20,7 @@ from . import evidence
 from . import learned, pk_model
 from .burden import regimen_burden
 from .patient import Patient, escalate, patient_alerts
+from .lexicon import CYP3A4 as CYP3A4_KEY
 from .lexicon import DRUGS, KB_VERSION, SYNONYMS, DrugProfile
 from .normalize import ResolvedDrug, resolve
 from .rules import (CONTRAINDICATED, CURATED, MAJOR, MINOR, MODERATE, PD, PK, SRC_CREDIBLEMEDS,
@@ -137,7 +138,8 @@ def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
                     f"increase its side effects.",
                     (f"more side effects from {victim.name.title()} than usual",),
                     (SRC_FDA_CYP,), "mechanism-inferred", _PK_LEVEL, perp, victim))
-                out[-1].pk_estimate = _tag(pk_model.estimate("inhibit", enz, strength, victim.sub[enz]), perp, victim)
+                out[-1].pk_estimate = _tag(pk_model.estimate("inhibit", enz, strength, victim.sub[enz],
+                                                             victim.name, perp.name), perp, victim)
         if victim.prodrug == enz and strength in {"strong", "moderate"}:
             out.append(_f(
                 MODERATE, PK, f"prodrug:{enz}",
@@ -166,7 +168,8 @@ def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
                     f"not work as well.",
                     (f"{victim.name.title()} seeming not to work as well as before",),
                     (SRC_FDA_CYP,), "mechanism-inferred", _PK_LEVEL, perp, victim))
-                out[-1].pk_estimate = _tag(pk_model.estimate("induce", enz, strength, victim.sub[enz]), perp, victim)
+                out[-1].pk_estimate = _tag(pk_model.estimate("induce", enz, strength, victim.sub[enz],
+                                                             victim.name, perp.name), perp, victim)
     return out
 
 
@@ -443,6 +446,75 @@ def _pd_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
 
 # --------------------------------------------------------------------------- aggregation
 
+# US labels that restrict co-administration with CYP3A perpetrators (victim -> label citation).
+LABEL_CYP3A = {
+    "lurasidone": "Latuda (lurasidone) US Prescribing Information, Section 4: Contraindications",
+    "naloxegol": "Movantik (naloxegol) US Prescribing Information, Section 4: Contraindications",
+    "lomitapide": "Juxtapid (lomitapide) US Prescribing Information, Section 4: Contraindications",
+    "tolvaptan": "Samsca (tolvaptan) US Prescribing Information, Sections 4 and 7",
+    "conivaptan": "Vaprisol (conivaptan) US Prescribing Information, Section 4: Contraindications",
+    "ivabradine": "Corlanor (ivabradine) US Prescribing Information, Sections 4 and 7",
+    "ranolazine": "Ranexa (ranolazine) US Prescribing Information, Section 4: Contraindications",
+    "alfuzosin": "Uroxatral (alfuzosin) US Prescribing Information, Section 4: Contraindications",
+    "eletriptan": "Relpax (eletriptan) US Prescribing Information, Section 4: Contraindications",
+    "flibanserin": "Addyi (flibanserin) US Prescribing Information, Section 4: Contraindications",
+    "pimozide": "Orap (pimozide) US Prescribing Information, Section 4: Contraindications",
+    "ergotamine": "Ergotamine US Prescribing Information, Boxed Warning and Section 4",
+    "dihydroergotamine": "Dihydroergotamine US Prescribing Information, Boxed Warning and Section 4",
+    "avanafil": "Stendra (avanafil) US Prescribing Information, Section 7: Drug Interactions",
+    "suvorexant": "Belsomra (suvorexant) US Prescribing Information, Section 7: Drug Interactions",
+    "eplerenone": "Inspra (eplerenone) US Prescribing Information, Section 4: Contraindications",
+}
+
+_LABEL_EFFECT = {
+    "lurasidone": "Large changes in lurasidone exposure (toxicity with inhibitors, loss of efficacy with inducers).",
+    "naloxegol": "Markedly increased naloxegol exposure; risk of opioid withdrawal and abdominal pain.",
+    "lomitapide": "Markedly increased lomitapide exposure; hepatotoxicity.",
+    "tolvaptan": "Markedly increased tolvaptan exposure; overly rapid sodium correction (osmotic demyelination).",
+    "conivaptan": "Markedly increased conivaptan exposure; overly rapid sodium correction.",
+    "ivabradine": "Increased ivabradine exposure; bradycardia and conduction disturbances.",
+    "ranolazine": "Increased ranolazine exposure with QT prolongation (inhibitors), or loss of efficacy (inducers).",
+    "alfuzosin": "Increased alfuzosin exposure; hypotension.",
+    "eletriptan": "Increased eletriptan exposure; coronary vasospasm and hypertension.",
+    "flibanserin": "Increased flibanserin exposure; severe hypotension and syncope.",
+    "pimozide": "Increased pimozide exposure; QT prolongation and ventricular arrhythmia.",
+    "ergotamine": "Increased ergot exposure; ergotism (vasospasm, limb and cerebral ischaemia).",
+    "dihydroergotamine": "Increased ergot exposure; ergotism (vasospasm, limb and cerebral ischaemia).",
+    "avanafil": "Increased avanafil exposure; hypotension.",
+    "suvorexant": "Increased suvorexant exposure; excessive sedation.",
+    "eplerenone": "Increased eplerenone exposure; hyperkalaemia.",
+}
+
+
+def _label_cyp3a_findings(victim: DrugProfile, perp: DrugProfile) -> List[Finding]:
+    """Label restrictions keyed on the perpetrator's CYP3A strength (covers FDA-table perpetrators too)."""
+    if victim.name == perp.name or victim.name not in LABEL_CYP3A:
+        return []
+    inh, ind = perp.inh.get(CYP3A4_KEY), perp.ind.get(CYP3A4_KEY)
+    sev, what = None, None
+    if (victim.has("ci3a_moderate_inh") and inh in ("strong", "moderate")) or \
+            (victim.has("ci3a_strong_inh") and inh == "strong"):
+        sev, what = CONTRAINDICATED, f"{inh} CYP3A inhibitor"
+    elif (victim.has("avoid3a_moderate_inh") and inh == "moderate") or \
+            (victim.has("avoid3a_strong_inh") and inh == "strong"):
+        sev, what = MAJOR, f"{inh} CYP3A inhibitor"
+    elif victim.has("ci3a_strong_ind") and ind == "strong":
+        sev, what = CONTRAINDICATED, "strong CYP3A inducer"
+    elif victim.has("avoid3a_strong_ind") and ind == "strong":
+        sev, what = MAJOR, "strong CYP3A inducer"
+    if not sev:
+        return []
+    v, p = victim.name.title(), perp.name.title()
+    verb = "Contraindicated" if sev == CONTRAINDICATED else "Avoid"
+    return [_f(sev, PK, "curated:pk", f"{verb}: {v} with a {what} ({p})",
+               f"{v} depends on CYP3A for clearance; {p} is a {what}.",
+               _LABEL_EFFECT[victim.name],
+               f"{verb} per the {v} label; choose an alternative to {p} or to {v}.",
+               f"{v} should not be taken with {p}. Ask your doctor or pharmacist for an alternative.",
+               ("dizziness or fainting", "palpitations", "any severe or unusual side effect"),
+               (LABEL_CYP3A[victim.name], SRC_FDA_CYP), "curated", _CURATED_LEVEL, perp, victim)]
+
+
 def _pair_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
     if x.name == y.name:
         return [_f(MAJOR, "Therapeutic duplication", "duplication",
@@ -463,6 +535,11 @@ def _pair_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
                                rule.management, rule.patient, rule.watch, rule.evidence, "curated",
                                _CURATED_LEVEL, x, y))
             covers.update(rule.covers)
+
+    for f in _label_cyp3a_findings(x, y) + _label_cyp3a_findings(y, x):
+        if not any(g.title == f.title for g in findings):
+            findings.append(f)
+            covers.add("pk")
 
     inferred = _pk_findings(x, y) + _pk_findings(y, x) + _pd_findings(x, y)
     seen_axes = set()
