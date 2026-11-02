@@ -87,3 +87,20 @@ def test_drug_per_row_layout_from_live_page():
     assert roles["rifampin"]["inh"] == {"CYP2C8": "moderate"}
     assert roles["midazolam"]["sub"] == {"CYP3A4": "sensitive"}
     assert roles["tadalafil"]["sub"] == {"CYP3A4": "moderate"}
+
+
+def test_generated_roles_can_be_disabled(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    (tmp_path / "fda_cyp_roles.json").write_text(json.dumps(
+        {"roles": {"ibrutinib": {"sub": {"CYP3A4": "sensitive"}, "inh": {}, "ind": {}}}}))
+    code = "from api.ddi.lexicon import DRUGS, GENERATED_ROLES as g; print('ibrutinib' in DRUGS, g['loaded'])"
+    env = {**os.environ, "DDI_DATA_DIR": str(tmp_path)}
+    root = Path(__file__).resolve().parents[1]
+    on = subprocess.run([sys.executable, "-c", code], env=env, cwd=root, capture_output=True, text=True).stdout
+    off = subprocess.run([sys.executable, "-c", code], env={**env, "DDI_DISABLE_GENERATED_ROLES": "1"}, cwd=root,
+                         capture_output=True, text=True).stdout
+    assert on.strip() == "True True" and off.strip() == "False False"

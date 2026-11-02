@@ -148,3 +148,30 @@ the magnitudes seen with extremely sensitive substrates:
 The principled fix is drug-specific fm values for those substrates. They must be fitted on the calibration half only
 and then reported on the holdout half. The extractor fix also corrected the earlier sirolimus + verapamil outlier,
 from 0.67× to 1.5×.
+
+## Run 4: 2026-11-02 (commit `3706c7e`, [run 41431814303](https://github.com/TEKURU-ZENO/BioGPT-DDI/actions/runs/41431814303))
+
+The FDA CYP-table parser fix worked: the import now reads roles for **198 drugs** (runs 1–3: 26).
+
+| Metric | Hand-curated lexicon | + FDA-table roles |
+|---|---|---|
+| DDInter coverage, excluding "Unknown" | 31.4% | 32.2% |
+| DDInter Major pairs detected | 70.2% | 71.0% |
+| DDInter Moderate pairs detected | 22.4% | 23.3% |
+| Weighted kappa | 0.242 | 0.246 |
+| False alerts on sampled negatives | 12.3% | 12.4% |
+| KEGG contraindicated pairs detected | 81.7% | 83.6% |
+| PK coverage of observed interactions | 37.4% | 38.4% |
+| PK GMFE / within 2-fold | 1.57 / 81.6% | 1.58 / 80.0% |
+
+**This understates the breadth gain, because of a measurement flaw.** The references were built *before* the FDA
+import and keep only drugs the lexicon knew at that moment. The drugs the FDA table adds could therefore never
+appear in the reference set; the table above only shows extra roles for drugs already present.
+
+**Fixed for run 5:**
+- The workflow imports the FDA table first and builds the references with the expanded lexicon.
+- The "hand-curated only" evaluation switches the imported roles off (`DDI_DISABLE_GENERATED_ROLES=1`), so both
+  columns score the same pairs.
+- The merge summary (drugs added, roles enriched, FDA-vs-curated conflicts) is now printed to the log.
+
+Run 5 numbers will not be comparable to runs 1–4, because the reference set grows.

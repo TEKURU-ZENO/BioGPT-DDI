@@ -20,7 +20,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       DDI_ENABLE_RXNAV: "false"
     steps:
@@ -29,6 +29,22 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r api/requirements.txt
+
+      # The FDA CYP-table import runs first so that the references below include the drugs it adds.
+      # The "baseline" evaluation then switches those roles off (DDI_DISABLE_GENERATED_ROLES), so both
+      # evaluations score exactly the same reference pairs and the breadth gain is measurable.
+      - name: Expand mechanism layer from FDA CYP tables
+        id: fda
+        continue-on-error: true
+        run: |
+          python -m scripts.import_fda_cyp_table --debug
+          python - <<'PY' | tee fda-roles-summary.json
+          import json
+          from api.ddi.lexicon import GENERATED_ROLES as g
+          out = {k: (len(v) if isinstance(v, list) else v) for k, v in g.items()}
+          out["conflict_examples"] = g.get("conflicts", [])[:40]
+          print(json.dumps(out, indent=1))
+          PY
 
       - name: Build reference - DDInter (pharmacist-curated severities)
         continue-on-error: true
@@ -51,7 +67,9 @@ jobs:
         continue-on-error: true
         run: python -m scripts.references.pk_labels --out eval/references/pk_labels.csv
 
-      - name: Evaluate - baseline lexicon
+      - name: Evaluate - hand-curated lexicon only (FDA-table roles disabled)
+        env:
+          DDI_DISABLE_GENERATED_ROLES: "1"
         run: |
           refs=""
           for f in ddinter kegg onc; do
@@ -62,15 +80,9 @@ jobs:
             python -m scripts.evaluate_pk eval/references/pk_labels.csv --holdout-seed 7 --out eval-pk.md
           fi
 
-      - name: Expand mechanism layer from FDA CYP tables
-        id: fda
-        continue-on-error: true
-        run: python -m scripts.import_fda_cyp_table --debug
-
       - name: Evaluate - with FDA CYP roles merged
         if: steps.fda.outcome == 'success'
         run: |
-          python -c "from api.ddi.lexicon import GENERATED_ROLES as g; import json; print(json.dumps({k: (len(v) if isinstance(v, list) else v) for k, v in g.items()}, indent=1))" > fda-roles-summary.json
           refs=""
           for f in ddinter kegg onc; do
             [ -s "eval/references/$f.csv" ] && refs="$refs --reference eval/references/$f.csv"

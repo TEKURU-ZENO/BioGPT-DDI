@@ -492,6 +492,8 @@ SALT_WORDS = {
 
 
 def _load_generated_roles() -> None:
+    if os.getenv("DDI_DISABLE_GENERATED_ROLES", "").lower() in {"1", "true", "yes"}:
+        return  # lets the validation workflow score the hand-curated lexicon alone
     path = _generated_roles_path()
     if not path.exists():
         return
