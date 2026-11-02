@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from api.ddi import biogpt
+from api.ddi import biogpt, evidence
 from api.ddi.engine import analyze_pair, analyze_regimen
 from api.ddi.lexicon import DRUGS, KB_VERSION
 from api.ddi.reports import attach_reports
@@ -63,8 +63,13 @@ class PredictionRequest(BaseModel):
         return _validate_name(v)
 
 
+class PatientContext(BaseModel):
+    age: Optional[float] = Field(None, ge=0, le=120)
+
+
 class RegimenRequest(BaseModel):
     drugs: List[str] = Field(..., min_length=2, max_length=15)
+    patient: Optional[PatientContext] = None
 
     @field_validator("drugs")
     @classmethod
@@ -106,6 +111,7 @@ def health_check():
         "knowledge_base": {"version": KB_VERSION, "ingredients": len(DRUGS), "curated_rules": len(CURATED)},
         "engine": "curated rules + mechanism rules (CYP/P-gp, pharmacodynamic axes)",
         "biogpt_literature_context": biogpt.enabled(),
+        "external_evidence": evidence.external_status(),
     }
 
 
@@ -127,7 +133,8 @@ async def predict_interaction(request: PredictionRequest):
 @app.post("/api/regimen")
 def check_regimen(request: RegimenRequest):
     try:
-        return analyze_regimen(request.drugs)
+        patient = request.patient or PatientContext()
+        return analyze_regimen(request.drugs, age=patient.age)
     except Exception:
         logger.exception("regimen check failed")
         raise HTTPException(status_code=500, detail="Regimen analysis failed due to an internal error.")

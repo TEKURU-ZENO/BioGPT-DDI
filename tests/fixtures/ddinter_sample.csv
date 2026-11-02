@@ -1,0 +1,7 @@
+DDInterID_A,Drug_A,DDInterID_B,Drug_B,Level
+DDInter20,Amoxicillin,DDInter1951,Warfarin,Moderate
+DDInter1951,Warfarin,DDInter20,Amoxicillin,Minor
+DDInter900,Clopidogrel,DDInter1300,Pantoprazole,Unknown
+DDInter1700,Sertraline,DDInter800,Ibuprofen,Major
+DDInter5,Unobtainium,DDInter1951,Warfarin,Major
+DDInter1951,Warfarin,DDInter1951,Warfarin,Major

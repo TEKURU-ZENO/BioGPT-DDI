@@ -15,7 +15,9 @@ from dataclasses import asdict, dataclass, field
 from itertools import combinations
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-from .lexicon import DRUGS, KB_VERSION, DrugProfile
+from . import evidence
+from .burden import regimen_burden
+from .lexicon import DRUGS, KB_VERSION, SYNONYMS, DrugProfile
 from .normalize import ResolvedDrug, resolve
 from .rules import (CONTRAINDICATED, CURATED, MAJOR, MINOR, MODERATE, PD, PK, SRC_CREDIBLEMEDS,
                     SRC_FDA_CYP, SRC_GABA_DSC, SRC_LINEZOLID_DSC, SRC_OPI_BZD_DSC, SRC_SEROTONIN, Rule)
@@ -79,6 +81,7 @@ def _f(sev, cat, axis, title, mech, effect, mgmt, patient, watch, evidence, basi
 
 
 _PK_LEVEL = "Mechanism-inferred (FDA index-drug classification)"
+_EXT_LEVEL = "External database (not independently curated)"
 _PD_LEVEL = "Mechanism-inferred (pharmacodynamic class effect)"
 _CURATED_LEVEL = "Established (product labeling / regulatory guidance)"
 
@@ -416,21 +419,48 @@ def _pair_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
     return findings
 
 
+_BRANDS: dict = {}
+for _alias, _target in SYNONYMS.items():
+    if isinstance(_target, str):
+        _BRANDS.setdefault(_target, []).append(_alias)
+
+
+def _search_terms(ingredient: str) -> List[str]:
+    return [ingredient] + sorted(_BRANDS.get(ingredient, []), key=len, reverse=True)
+
+
+def _external_finding(x: DrugProfile, y: DrugProfile, hit: dict) -> Optional[Finding]:
+    level = hit.get("level", "Unknown")
+    graded = level in SEVERITY_RANK
+    sev = level if graded else MINOR
+    src = f"{hit['source']}" + (f" (version {hit['version']})" if hit.get("version") else "")
+    return _f(sev, "Unspecified", "external",
+              f"{x.name.title()} + {y.name.title()}: interaction listed in {hit['source']}",
+              "Mechanism not specified by the source database.",
+              "See source record." + ("" if graded else " Severity not graded by the source."),
+              "Verify in a clinical reference before acting; consult a pharmacist.",
+              f"A medicine database lists an interaction between {x.name.title()} and {y.name.title()}. "
+              f"Ask your pharmacist what it means for you.",
+              (), (src,), "external-db", _EXT_LEVEL, x, y)
+
+
 def _max_severity(findings: Sequence[Finding]) -> Optional[str]:
     if not findings:
         return None
     return max(findings, key=lambda f: SEVERITY_RANK[f.severity]).severity
 
 
-def _summary_category(findings: Sequence[Finding]) -> str:
+def _summary_category(findings: Sequence[dict]) -> str:
     cats = set()
     for f in findings:
-        if "Pharmacokinetic" in f.category:
+        if "Pharmacokinetic" in f["category"]:
             cats.add("Pharmacokinetic")
-        if "Pharmacodynamic" in f.category:
+        if "Pharmacodynamic" in f["category"]:
             cats.add("Pharmacodynamic")
-        if f.category == "Therapeutic duplication":
+        if f["category"] == "Therapeutic duplication":
             cats.add("Therapeutic duplication")
+        if f["category"] == "Unspecified":
+            cats.add("Listed in external database")
     return " + ".join(sorted(cats)) or "Interaction"
 
 
@@ -450,22 +480,38 @@ def analyze_resolved(d1: ResolvedDrug, d2: ResolvedDrug) -> dict:
                            ". Check the spelling or use the generic (ingredient) name."}
 
     findings: List[Finding] = []
+    discrepancies: List[dict] = []
     seen_titles = set()
     for i in d1.ingredients:
         for j in d2.ingredients:
-            for f in _pair_findings(DRUGS[i], DRUGS[j]):
+            pair = _pair_findings(DRUGS[i], DRUGS[j])
+            hit = evidence.external_pair(i, j) if i != j else None
+            if hit:
+                if not pair:
+                    pair = [_external_finding(DRUGS[i], DRUGS[j], hit)]
+                elif hit.get("level") in SEVERITY_RANK and \
+                        SEVERITY_RANK[hit["level"]] > SEVERITY_RANK[_max_severity(pair)]:
+                    discrepancies.append({"drugs": [i.title(), j.title()], "source": hit["source"],
+                                          "source_severity": hit["level"], "engine_severity": _max_severity(pair)})
+            citations = evidence.label_citations(i, j, {i: _search_terms(i), j: _search_terms(j)}) if i != j else []
+            for f in pair:
                 if f.title not in seen_titles:  # combination products can hit one rule twice
                     seen_titles.add(f.title)
-                    findings.append(f)
-    findings.sort(key=lambda f: -SEVERITY_RANK[f.severity])
+                    fd = f.to_dict()
+                    fd["label_evidence"] = citations
+                    findings.append(fd)
+    findings.sort(key=lambda f: -SEVERITY_RANK[f["severity"]])
+    if discrepancies:
+        base["severity_discrepancies"] = discrepancies
 
     if findings:
-        has_curated = any(f.basis in {"curated", "duplication"} for f in findings)
-        return {**base, "status": "interaction_found", "severity": _max_severity(findings),
+        has_curated = any(f["basis"] in {"curated", "duplication"} for f in findings)
+        worst = max(findings, key=lambda f: SEVERITY_RANK[f["severity"]])["severity"]
+        return {**base, "status": "interaction_found", "severity": worst,
                 "prediction": _summary_category(findings),
                 "confidence": "High - documented in product labeling/regulatory guidance" if has_curated
                 else "Moderate - inferred from pharmacological mechanism; verify with a clinical database",
-                "findings": [f.to_dict() for f in findings],
+                "findings": findings,
                 "message": f"{len(findings)} interaction finding(s)."}
 
     gaps = [d for d in (d1, d2) if not d.in_knowledge_base]
@@ -486,7 +532,7 @@ def analyze_pair(drug1: str, drug2: str) -> dict:
     return analyze_resolved(resolve(drug1), resolve(drug2))
 
 
-def analyze_regimen(drugs: Sequence[str]) -> dict:
+def analyze_regimen(drugs: Sequence[str], age: Optional[float] = None) -> dict:
     """Check every pair in a medication list (polypharmacy screen)."""
     resolved = [resolve(d) for d in drugs]
     pairs = []
@@ -494,12 +540,15 @@ def analyze_regimen(drugs: Sequence[str]) -> dict:
         res = analyze_resolved(resolved[a], resolved[b])
         pairs.append({"drug1": drugs[a], "drug2": drugs[b], "status": res["status"],
                       "severity": res["severity"], "findings": res["findings"]})
+    profiles = [DRUGS[i] for r in resolved if r.recognized for i in r.ingredients]
+    burden = regimen_burden(profiles, age=age)
     ranked = [p for p in pairs if p["severity"] in SEVERITY_RANK]
     worst = max((p["severity"] for p in ranked), key=lambda s: SEVERITY_RANK[s], default=None)
     return {
         "drugs": [r.to_dict() for r in resolved],
         "pairs": sorted(pairs, key=lambda p: -SEVERITY_RANK.get(p["severity"], 0)),
         "highest_severity": worst or (UNKNOWN if any(not r.recognized for r in resolved) else NONE_KNOWN),
+        "burden": burden,
         "kb_version": KB_VERSION,
         "disclaimer": DISCLAIMER,
     }

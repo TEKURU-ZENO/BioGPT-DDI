@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import GlassCard from '../components/common/GlassCard';
+import { severityClass } from '../utils/severity';
 import './AnalyzerPage.css';
 
 const API_BASE_URL = '';
@@ -86,16 +87,7 @@ function AnalyzerPage() {
     }
   };
 
-  const getSeverityClass = (severity) => {
-    switch (severity?.toLowerCase()) {
-      case 'contraindicated': return 'severity-contraindicated';
-      case 'major': return 'severity-major';
-      case 'moderate': return 'severity-moderate';
-      case 'minor': return 'severity-minor';
-      case 'none known': return 'severity-none';
-      default: return 'severity-unknown';
-    }
-  };
+  const getSeverityClass = severityClass;
 
   return (
     <div className="analyzer-container">
@@ -182,6 +174,12 @@ function AnalyzerPage() {
             {result.status === 'interaction_found' && (
               <>
                 {result.confidence && <p className="confidence-line">Confidence: {result.confidence}</p>}
+                {result.severity_discrepancies?.map((d) => (
+                  <p key={d.drugs.join('|')} className="status-note status-insufficient_data">
+                    {d.source} grades {d.drugs.join(' + ')} as <strong>{d.source_severity}</strong> (this engine:{' '}
+                    {d.engine_severity}). Check a clinical reference.
+                  </p>
+                ))}
                 <div className="tabs">
                   <button
                     className={`tab-button ${activeTab === 'patient' ? 'active' : ''}`}
@@ -234,6 +232,14 @@ function AnalyzerPage() {
                           <p><strong>Mechanism:</strong> {f.mechanism}</p>
                           <p><strong>Clinical effect:</strong> {f.effect}</p>
                           <p><strong>Management:</strong> {f.management}</p>
+                          {f.label_evidence?.filter((c) => c.excerpt).map((c) => (
+                            <blockquote key={c.url} className="label-quote">
+                              “{c.excerpt}”
+                              <footer>
+                                — <a href={c.url} target="_blank" rel="noopener noreferrer">{c.title || `${c.label_of} label`}</a>
+                              </footer>
+                            </blockquote>
+                          ))}
                           {f.evidence.length > 0 && (
                             <details>
                               <summary>Sources ({f.evidence.length})</summary>

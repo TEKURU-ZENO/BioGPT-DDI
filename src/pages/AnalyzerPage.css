@@ -467,3 +467,24 @@
     border-left-color: #667eea;
   }
 }
+
+.label-quote {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.9rem;
+  border-left: 3px solid #a5b4fc;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.label-quote footer {
+  font-style: normal;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-top: 0.3rem;
+}
+
+.label-quote a,
+.finding-card a {
+  color: #c7d2fe;
+}

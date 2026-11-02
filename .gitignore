@@ -9,3 +9,6 @@ __pycache__/
 # Claude Code local settings and session files
 .claude/
 CLAUDE.local.md
+
+# Generated external evidence (licensed third-party data)
+api/ddi/data/*.json

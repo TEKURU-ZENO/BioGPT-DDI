@@ -1,0 +1,6 @@
+{"results": [{
+  "set_id": "d91934a0-902e-c26c-23ca-d5accc4151b6",
+  "effective_time": "20220101",
+  "openfda": {"brand_name": ["COUMADIN"], "generic_name": ["WARFARIN SODIUM"]},
+  "drug_interactions": ["7 DRUG INTERACTIONS 7.1 General Information Drugs may interact with warfarin through pharmacodynamic or pharmacokinetic mechanisms. 7.2 CYP450 Interactions CYP2C9 inhibitors such as amiodarone, fluconazole and metronidazole can increase INR. Monitor INR closely when starting or stopping these drugs."]
+}]}
