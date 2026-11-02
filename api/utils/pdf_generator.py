@@ -155,6 +155,12 @@ class DDIReportGenerator:
                                   ["Evidence level", f["evidence_level"]]]),
                 self._p("Mechanism", "DDISub"), self._p(_e(f["mechanism"])),
                 self._p("Clinical effect", "DDISub"), self._p(_e(f["effect"])),
+            ]
+            if f.get("pk_estimate"):
+                block += [self._p("Estimated exposure change", "DDISub"),
+                          self._p(_e(f["pk_estimate"]["summary"])),
+                          self._p(_e(f["pk_estimate"]["assumptions"]), "DDISmall")]
+            block += [
                 self._p("Management", "DDISub"), self._p(_e(f["management"])),
             ]
             if f["watch_for"]:
@@ -169,8 +175,10 @@ class DDIReportGenerator:
             "Severity is assigned deterministically: curated rules derived from product labeling and regulatory "
             "communications take precedence; otherwise a mechanism engine infers interactions from CYP450 / "
             "P-glycoprotein roles (FDA index-drug classification) and pharmacodynamic risk axes (serotonergic, "
-            "QT, CNS depression, bleeding, potassium, RAAS, haemodynamic). Patient-specific factors (renal and "
-            "hepatic function, age, dose, pharmacogenomics) are not yet modelled. This report has not been "
+            "QT, CNS depression, bleeding, potassium, RAAS, haemodynamic). Exposure changes are class-level static-"
+            "model estimates. Patient context (renal function, age, pharmacogenomics) is available via the "
+            "Medication List screen and API but is not included in this report; dose and hepatic function are not "
+            "modelled. This report has not been "
             "validated for clinical use and must be checked against a licensed interaction database."))
         story.extend(self._footer(r))
         return self._build(story)

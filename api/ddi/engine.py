@@ -16,7 +16,9 @@ from itertools import combinations
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from . import evidence
+from . import pk_model
 from .burden import regimen_burden
+from .patient import Patient, escalate, patient_alerts
 from .lexicon import DRUGS, KB_VERSION, SYNONYMS, DrugProfile
 from .normalize import ResolvedDrug, resolve
 from .rules import (CONTRAINDICATED, CURATED, MAJOR, MINOR, MODERATE, PD, PK, SRC_CREDIBLEMEDS,
@@ -48,6 +50,7 @@ class Finding:
     basis: str  # "curated" | "mechanism-inferred" | "duplication"
     evidence_level: str
     drugs: Tuple[str, str]
+    pk_estimate: Optional[dict] = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -127,6 +130,7 @@ def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
                     f"increase its side effects.",
                     (f"more side effects from {victim.name.title()} than usual",),
                     (SRC_FDA_CYP,), "mechanism-inferred", _PK_LEVEL, perp, victim))
+                out[-1].pk_estimate = pk_model.estimate("inhibit", enz, strength, victim.sub[enz])
         if victim.prodrug == enz and strength in {"strong", "moderate"}:
             out.append(_f(
                 MODERATE, PK, f"prodrug:{enz}",
@@ -155,6 +159,7 @@ def _pk_findings(perp: DrugProfile, victim: DrugProfile) -> List[Finding]:
                     f"not work as well.",
                     (f"{victim.name.title()} seeming not to work as well as before",),
                     (SRC_FDA_CYP,), "mechanism-inferred", _PK_LEVEL, perp, victim))
+                out[-1].pk_estimate = pk_model.estimate("induce", enz, strength, victim.sub[enz])
     return out
 
 
@@ -404,7 +409,8 @@ def _pair_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
     covers: set = set()
     for rule in CURATED:
         if _rule_matches(rule, x, y):
-            findings.append(_f(rule.severity, rule.category, "curated", rule.title, rule.mechanism, rule.effect,
+            axis = "curated:" + ",".join(rule.covers) if rule.covers else "curated"
+            findings.append(_f(rule.severity, rule.category, axis, rule.title, rule.mechanism, rule.effect,
                                rule.management, rule.patient, rule.watch, rule.evidence, "curated",
                                _CURATED_LEVEL, x, y))
             covers.update(rule.covers)
@@ -464,7 +470,19 @@ def _summary_category(findings: Sequence[dict]) -> str:
     return " + ".join(sorted(cats)) or "Interaction"
 
 
-def analyze_resolved(d1: ResolvedDrug, d2: ResolvedDrug) -> dict:
+def _worst(findings: Sequence[dict]) -> Optional[str]:
+    if not findings:
+        return None
+    return max(findings, key=lambda f: SEVERITY_RANK[f["severity"]])["severity"]
+
+
+def _profiles(resolved: Sequence[ResolvedDrug]) -> List[DrugProfile]:
+    return [DRUGS[i] for r in resolved if r.recognized for i in r.ingredients]
+
+
+def analyze_resolved(d1: ResolvedDrug, d2: ResolvedDrug, patient: Optional[Patient] = None,
+                     _patient_ctx: Optional[dict] = None) -> dict:
+    """Analyse one pair. ``_patient_ctx`` lets a regimen pass phenotypes computed over all its drugs."""
     base = {
         "drug1": d1.to_dict(),
         "drug2": d2.to_dict(),
@@ -500,14 +518,19 @@ def analyze_resolved(d1: ResolvedDrug, d2: ResolvedDrug) -> dict:
                     fd = f.to_dict()
                     fd["label_evidence"] = citations
                     findings.append(fd)
+    if patient is not None and not patient.empty:
+        ctx = _patient_ctx or patient_alerts(_profiles([d1, d2]), patient)
+        escalate(findings, patient, ctx["_phenos"])
+        if _patient_ctx is None:
+            base["patient_alerts"] = ctx["alerts"]
+            base["phenotypes"] = ctx["phenotypes"]
     findings.sort(key=lambda f: -SEVERITY_RANK[f["severity"]])
     if discrepancies:
         base["severity_discrepancies"] = discrepancies
 
     if findings:
         has_curated = any(f["basis"] in {"curated", "duplication"} for f in findings)
-        worst = max(findings, key=lambda f: SEVERITY_RANK[f["severity"]])["severity"]
-        return {**base, "status": "interaction_found", "severity": worst,
+        return {**base, "status": "interaction_found", "severity": _worst(findings),
                 "prediction": _summary_category(findings),
                 "confidence": "High - documented in product labeling/regulatory guidance" if has_curated
                 else "Moderate - inferred from pharmacological mechanism; verify with a clinical database",
@@ -528,20 +551,22 @@ def analyze_resolved(d1: ResolvedDrug, d2: ResolvedDrug) -> dict:
             "message": "No interaction found in this knowledge base. This does not guarantee the combination is safe."}
 
 
-def analyze_pair(drug1: str, drug2: str) -> dict:
-    return analyze_resolved(resolve(drug1), resolve(drug2))
+def analyze_pair(drug1: str, drug2: str, patient: Optional[Patient] = None) -> dict:
+    return analyze_resolved(resolve(drug1), resolve(drug2), patient)
 
 
-def analyze_regimen(drugs: Sequence[str], age: Optional[float] = None) -> dict:
-    """Check every pair in a medication list (polypharmacy screen)."""
+def analyze_regimen(drugs: Sequence[str], patient: Optional[Patient] = None) -> dict:
+    """Check every pair in a medication list (polypharmacy screen) with optional patient context."""
+    patient = patient or Patient()
     resolved = [resolve(d) for d in drugs]
+    profiles = _profiles(resolved)
+    ctx = None if patient.empty else patient_alerts(profiles, patient)
     pairs = []
     for a, b in combinations(range(len(resolved)), 2):
-        res = analyze_resolved(resolved[a], resolved[b])
+        res = analyze_resolved(resolved[a], resolved[b], patient, _patient_ctx=ctx)
         pairs.append({"drug1": drugs[a], "drug2": drugs[b], "status": res["status"],
                       "severity": res["severity"], "findings": res["findings"]})
-    profiles = [DRUGS[i] for r in resolved if r.recognized for i in r.ingredients]
-    burden = regimen_burden(profiles, age=age)
+    burden = regimen_burden(profiles, age=patient.age)
     ranked = [p for p in pairs if p["severity"] in SEVERITY_RANK]
     worst = max((p["severity"] for p in ranked), key=lambda s: SEVERITY_RANK[s], default=None)
     return {
@@ -549,6 +574,8 @@ def analyze_regimen(drugs: Sequence[str], age: Optional[float] = None) -> dict:
         "pairs": sorted(pairs, key=lambda p: -SEVERITY_RANK.get(p["severity"], 0)),
         "highest_severity": worst or (UNKNOWN if any(not r.recognized for r in resolved) else NONE_KNOWN),
         "burden": burden,
+        "patient_alerts": ctx["alerts"] if ctx else [],
+        "phenotypes": ctx["phenotypes"] if ctx else {},
         "kb_version": KB_VERSION,
         "disclaimer": DISCLAIMER,
     }

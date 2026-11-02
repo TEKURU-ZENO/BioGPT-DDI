@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field, field_validator
 from api.ddi import biogpt, evidence
 from api.ddi.engine import analyze_pair, analyze_regimen
 from api.ddi.lexicon import DRUGS, KB_VERSION
+from api.ddi.patient import Patient
+from api.ddi.pgx import VALID as PGX_VALID
 from api.ddi.reports import attach_reports
 from api.ddi.rules import CURATED
 from api.utils.pdf_generator import DDIReportGenerator
@@ -53,18 +55,38 @@ def _validate_name(v: str) -> str:
     return v
 
 
+class PatientContext(BaseModel):
+    age: Optional[float] = Field(None, ge=0, le=120)
+    egfr: Optional[float] = Field(None, ge=0, le=200, description="eGFR in mL/min/1.73m2")
+    pgx: Dict[str, str] = Field(default_factory=dict,
+                                description="Genotype-derived phenotypes, e.g. {'CYP2D6': 'PM', 'CYP2C19': 'IM'}")
+
+    @field_validator("pgx")
+    @classmethod
+    def _check_pgx(cls, v: Dict[str, str]) -> Dict[str, str]:
+        out = {}
+        for gene, pheno in v.items():
+            gene, pheno = gene.upper().strip(), pheno.upper().strip()
+            if gene not in PGX_VALID:
+                raise ValueError(f"unsupported gene {gene!r}; supported: {sorted(PGX_VALID)}")
+            if pheno not in PGX_VALID[gene]:
+                raise ValueError(f"unsupported {gene} phenotype {pheno!r}; supported: {sorted(PGX_VALID[gene])}")
+            out[gene] = pheno
+        return out
+
+    def to_patient(self) -> Patient:
+        return Patient(age=self.age, egfr=self.egfr, pgx=dict(self.pgx))
+
+
 class PredictionRequest(BaseModel):
     drug1: str = Field(..., min_length=1, max_length=100)
     drug2: str = Field(..., min_length=1, max_length=100)
+    patient: Optional[PatientContext] = None
 
     @field_validator("drug1", "drug2")
     @classmethod
     def _check_names(cls, v: str) -> str:
         return _validate_name(v)
-
-
-class PatientContext(BaseModel):
-    age: Optional[float] = Field(None, ge=0, le=120)
 
 
 class RegimenRequest(BaseModel):
@@ -93,8 +115,8 @@ class PDFRequest(BaseModel):
         return _validate_name(v)
 
 
-def _run(drug1: str, drug2: str) -> dict:
-    return attach_reports(analyze_pair(drug1, drug2))
+def _run(drug1: str, drug2: str, patient: Optional[PatientContext] = None) -> dict:
+    return attach_reports(analyze_pair(drug1, drug2, patient.to_patient() if patient else None))
 
 
 @app.get("/")
@@ -118,7 +140,7 @@ def health_check():
 @app.post("/api/predict")
 async def predict_interaction(request: PredictionRequest):
     try:
-        result = _run(request.drug1, request.drug2)
+        result = _run(request.drug1, request.drug2, request.patient)
         result["literature_context"] = await biogpt.literature_context(result)
         if result["literature_context"]:
             result["literature_context_note"] = ("Experimental BioGPT continuation of the documented mechanism. "
@@ -133,8 +155,8 @@ async def predict_interaction(request: PredictionRequest):
 @app.post("/api/regimen")
 def check_regimen(request: RegimenRequest):
     try:
-        patient = request.patient or PatientContext()
-        return analyze_regimen(request.drugs, age=patient.age)
+        patient = request.patient.to_patient() if request.patient else None
+        return analyze_regimen(request.drugs, patient)
     except Exception:
         logger.exception("regimen check failed")
         raise HTTPException(status_code=500, detail="Regimen analysis failed due to an internal error.")

@@ -121,7 +121,7 @@ function RegimenPage() {
       {isLoading && <div className="loader-container"><div className="loader"></div></div>}
 
       {result && (
-        <GlassCard style={{ maxWidth: '900px', margin: '2rem auto', textAlign: 'left' }}>
+        <GlassCard className="regimen-results" style={{ maxWidth: '900px', margin: '2rem auto', textAlign: 'left' }}>
           <div className="result-header">
             <span className={`severity-badge ${severityClass(result.highest_severity)}`}>
               {result.highest_severity}
@@ -137,6 +137,17 @@ function RegimenPage() {
               {unrecognized.some((d) => d.suggestions?.length) && (
                 <> Did you mean {unrecognized.flatMap((d) => d.suggestions).join(', ')}?</>
               )}
+            </div>
+          )}
+
+          {Object.values(result.phenotypes || {}).some((g) => g.phenoconverted) && (
+            <div className="status-note status-insufficient_data">
+              <strong>Phenoconversion: </strong>
+              {Object.values(result.phenotypes).filter((g) => g.phenoconverted).map((g) => (
+                <span key={g.gene}>
+                  {g.gene} genetic {g.genetic} → functional {g.functional} (due to {g.converted_by.join(', ')}).{' '}
+                </span>
+              ))}
             </div>
           )}
 
@@ -192,7 +203,11 @@ function RegimenPage() {
                   <div key={f.title} className="pair-finding">
                     <p><span className={`severity-badge small ${severityClass(f.severity)}`}>{f.severity}</span>
                       <strong>{f.title}</strong></p>
+                    {f.escalated_from && (
+                      <p className="finding-meta">Escalated from {f.escalated_from} for this patient.</p>
+                    )}
                     {f.pk_estimate && <p className="finding-meta">Estimated exposure change: {f.pk_estimate.summary}</p>}
+                    {f.patient_notes?.map((n) => <p key={n} className="finding-meta">{n}</p>)}
                     <p><strong>Effect:</strong> {f.effect}</p>
                     <p><strong>Management:</strong> {f.management}</p>
                   </div>

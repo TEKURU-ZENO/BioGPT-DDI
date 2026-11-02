@@ -230,6 +230,10 @@ function AnalyzerPage() {
                           </div>
                           <p className="finding-meta">{f.category} · {f.evidence_level}</p>
                           <p><strong>Mechanism:</strong> {f.mechanism}</p>
+                          {f.pk_estimate && (
+                            <p><strong>Estimated exposure change:</strong> {f.pk_estimate.summary}{' '}
+                              <span className="finding-meta">({f.pk_estimate.model})</span></p>
+                          )}
                           <p><strong>Clinical effect:</strong> {f.effect}</p>
                           <p><strong>Management:</strong> {f.management}</p>
                           {f.label_evidence?.filter((c) => c.excerpt).map((c) => (

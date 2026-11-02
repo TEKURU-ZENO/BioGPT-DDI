@@ -1,4 +1,5 @@
 from api.ddi.engine import analyze_regimen
+from api.ddi.patient import Patient
 
 
 def axes(r):
@@ -14,7 +15,7 @@ def test_anticholinergic_burden_sums():
 def test_beers_cns_alert_is_critical_for_older_adults():
     meds = ["Sertraline", "Zolpidem", "Gabapentin"]
     assert axes(analyze_regimen(meds))["cns"]["level"] == "warning"
-    assert axes(analyze_regimen(meds, age=78))["cns"]["level"] == "critical"
+    assert axes(analyze_regimen(meds, Patient(age=78)))["cns"]["level"] == "critical"
 
 
 def test_qt_burden():
