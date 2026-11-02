@@ -1,7 +1,7 @@
 {
-  "name": "biogpt-di-app",
-  "version": "1.0.0",
-  "description": "BioGPT-DI: AI-Powered Drug Interaction Prediction",
+  "name": "biogpt-ddi",
+  "version": "2.0.0",
+  "description": "BioGPT-DDI: mechanism-aware drug-drug interaction screening",
   "private": true,
   "scripts": {
     "start": "react-scripts start",

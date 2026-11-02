@@ -6,7 +6,7 @@ function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <NavLink to="/">BioGPT-DI</NavLink>
+        <NavLink to="/">BioGPT-DDI</NavLink>
       </div>
       <ul className="navbar-links">
         <li><NavLink to="/" className={({ isActive }) => (isActive? 'active' : '')}>Home</NavLink></li>

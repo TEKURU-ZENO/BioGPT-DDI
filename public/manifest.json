@@ -1,6 +1,6 @@
 {
-  "short_name": "BioGPT-DI",
-  "name": "BioGPT-DI: AI Drug Interaction Analyzer",
+  "short_name": "BioGPT-DDI",
+  "name": "BioGPT-DDI: AI Drug Interaction Analyzer",
   "icons": [
     {
       "src": "favicon.ico",

@@ -14,9 +14,10 @@ function AnalyzerPage() {
   const [activeTab, setActiveTab] = useState('patient');
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [analyzedPair, setAnalyzedPair] = useState(null);
 
-  const handleAnalyze = async () => {
-    if (!drug1 || !drug2) {
+  const runAnalysis = async (d1, d2) => {
+    if (!d1.trim() || !d2.trim()) {
       setError('Please enter both drug names.');
       return;
     }
@@ -25,44 +26,51 @@ function AnalyzerPage() {
     setResult(null);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/predict`, { 
-        drug1, 
-        drug2 
-      });
+      const response = await axios.post(`${API_BASE_URL}/api/predict`, { drug1: d1, drug2: d2 });
       setResult(response.data);
+      setAnalyzedPair({ drug1: d1, drug2: d2 });
       setActiveTab('patient');
     } catch (err) {
-      setError('An error occurred during analysis. Please try again.');
+      if (err.response?.status === 422) {
+        setError('Please enter valid drug names (letters, numbers and basic punctuation, max 100 characters).');
+      } else {
+        setError('An error occurred during analysis. Please try again.');
+      }
       console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleAnalyze = () => runAnalysis(drug1, drug2);
+
+  const applySuggestion = (which, value) => {
+    const d1 = which === 1 ? value : drug1;
+    const d2 = which === 2 ? value : drug2;
+    setDrug1(d1);
+    setDrug2(d2);
+    runAnalysis(d1, d2);
+  };
+
   const handleDownloadPDF = async (reportType) => {
+    if (!analyzedPair) return;
     setIsDownloading(true);
-    
+
     try {
+      // The server re-runs the analysis; only the drug names are sent.
       const response = await axios.post(
         `${API_BASE_URL}/api/generate-pdf`,
-        {
-          drug1,
-          drug2,
-          report_type: reportType,
-          prediction_data: result
-        },
-        {
-          responseType: 'blob'
-        }
+        { ...analyzedPair, report_type: reportType },
+        { responseType: 'blob' }
       );
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
+      const safe = (t) => t.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 40);
       link.setAttribute(
         'download',
-        `DDI_Report_${reportType}_${drug1}_${drug2}.pdf`
+        `DDI_Report_${reportType}_${safe(analyzedPair.drug1)}_${safe(analyzedPair.drug2)}.pdf`
       );
       document.body.appendChild(link);
       link.click();
@@ -80,9 +88,11 @@ function AnalyzerPage() {
 
   const getSeverityClass = (severity) => {
     switch (severity?.toLowerCase()) {
+      case 'contraindicated': return 'severity-contraindicated';
       case 'major': return 'severity-major';
       case 'moderate': return 'severity-moderate';
       case 'minor': return 'severity-minor';
+      case 'none known': return 'severity-none';
       default: return 'severity-unknown';
     }
   };
@@ -91,7 +101,11 @@ function AnalyzerPage() {
     <div className="analyzer-container">
       <h2>Drug Interaction Analyzer</h2>
       <p className="page-subtitle">
-        Enter two drugs to analyze their potential interaction.
+        Enter two drugs (generic or brand names) to check for a documented or mechanism-based interaction.
+      </p>
+      <p className="disclaimer-banner" role="note">
+        For education and research only. Not medical advice and not a substitute for a pharmacist or a licensed
+        interaction database. No alert does not mean a combination is safe.
       </p>
       
       <GlassCard style={{ maxWidth: '600px', margin: 'auto' }}>
@@ -127,52 +141,119 @@ function AnalyzerPage() {
           <GlassCard style={{ maxWidth: '800px', margin: '2rem auto', textAlign: 'left' }}>
             <div className="result-header-container">
               <h3>Analysis Report</h3>
-              <button 
-                className="download-btn"
-                onClick={() => setShowDownloadModal(true)}
-              >
-                📥 Download Detailed Report
-              </button>
+              {(result.status === 'interaction_found' || result.status === 'no_known_interaction') && (
+                <button className="download-btn" onClick={() => setShowDownloadModal(true)}>
+                  📥 Download Detailed Report
+                </button>
+              )}
             </div>
-            
+
             <div className="result-header">
               <span className={`severity-badge ${getSeverityClass(result.severity)}`}>
                 {result.severity}
               </span>
               <span className="prediction-type">
-                Interaction Type: <strong>{result.prediction}</strong>
+                {result.drug1?.display_name || result.drug1?.input} + {result.drug2?.display_name || result.drug2?.input}
+                {' · '}<strong>{result.prediction}</strong>
               </span>
             </div>
-            
-            <div className="tabs">
-              <button 
-                className={`tab-button ${activeTab === 'patient' ? 'active' : ''}`}
-                onClick={() => setActiveTab('patient')}
-              >
-                Patient Summary
-              </button>
-              <button 
-                className={`tab-button ${activeTab === 'professional' ? 'active' : ''}`}
-                onClick={() => setActiveTab('professional')}
-              >
-                Professional Details
-              </button>
-            </div>
 
-            <div className="tab-content">
-              {activeTab === 'patient' && (
-                <div>
-                  <h4>Summary for Patients</h4>
-                  <p className="report-text">{result.patient_report}</p>
+            {result.status !== 'interaction_found' && (
+              <div className={`status-note status-${result.status}`}>
+                <p>{result.message}</p>
+                {[1, 2].map((n) => {
+                  const d = result[`drug${n}`];
+                  if (!d || d.recognized || !d.suggestions?.length) return null;
+                  return (
+                    <p key={n} className="suggestions">
+                      Did you mean{' '}
+                      {d.suggestions.map((sug) => (
+                        <button key={sug} className="suggestion-chip" onClick={() => applySuggestion(n, sug)}>
+                          {sug}
+                        </button>
+                      ))}
+                      {' '}for “{d.input}”?
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+
+            {result.status === 'interaction_found' && (
+              <>
+                {result.confidence && <p className="confidence-line">Confidence: {result.confidence}</p>}
+                <div className="tabs">
+                  <button
+                    className={`tab-button ${activeTab === 'patient' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('patient')}
+                  >
+                    Patient Summary
+                  </button>
+                  <button
+                    className={`tab-button ${activeTab === 'professional' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('professional')}
+                  >
+                    Professional Details
+                  </button>
                 </div>
-              )}
-              {activeTab === 'professional' && (
-                <div>
-                  <h4>Summary for Healthcare Professionals</h4>
-                  <p className="report-text">{result.professional_report}</p>
+
+                <div className="tab-content">
+                  {activeTab === 'patient' && (
+                    <div>
+                      <h4>Summary for Patients</h4>
+                      {result.findings.map((f) => (
+                        <p key={f.title} className="report-text">{f.patient_summary}</p>
+                      ))}
+                      {(() => {
+                        const watch = [...new Set(result.findings.flatMap((f) => f.watch_for))];
+                        return watch.length > 0 && (
+                          <>
+                            <h4>Get medical advice if you notice</h4>
+                            <ul className="watch-list">
+                              {watch.map((w) => <li key={w}>{w}</li>)}
+                            </ul>
+                          </>
+                        );
+                      })()}
+                      <p className="report-text">
+                        Do not stop or change any medicine on your own. Speak to your doctor or pharmacist first,
+                        and seek emergency care for severe symptoms.
+                      </p>
+                    </div>
+                  )}
+                  {activeTab === 'professional' && (
+                    <div>
+                      <h4>Findings for Healthcare Professionals</h4>
+                      {result.findings.map((f, i) => (
+                        <div key={f.title} className="finding-card">
+                          <div className="finding-title">
+                            <span className={`severity-badge small ${getSeverityClass(f.severity)}`}>{f.severity}</span>
+                            <strong>{i + 1}. {f.title}</strong>
+                          </div>
+                          <p className="finding-meta">{f.category} · {f.evidence_level}</p>
+                          <p><strong>Mechanism:</strong> {f.mechanism}</p>
+                          <p><strong>Clinical effect:</strong> {f.effect}</p>
+                          <p><strong>Management:</strong> {f.management}</p>
+                          {f.evidence.length > 0 && (
+                            <details>
+                              <summary>Sources ({f.evidence.length})</summary>
+                              <ul>{f.evidence.map((e) => <li key={e}>{e}</li>)}</ul>
+                            </details>
+                          )}
+                        </div>
+                      ))}
+                      {result.literature_context && (
+                        <div className="finding-card experimental">
+                          <p className="finding-meta">{result.literature_context_note}</p>
+                          <p>{result.literature_context}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
+            <p className="kb-footnote">Knowledge base v{result.kb_version}</p>
           </GlassCard>
 
           {/* Download Modal */}

@@ -1,149 +1,155 @@
 <h1 align="center">BioGPT-DDI</h1>
 
 <p align="center">
-  <b>Biomedical GPT for Drug–Drug Interaction Prediction and Explainable Clinical Reports</b>
+  <b>Mechanism-aware, source-cited drug–drug interaction screening with grounded patient and professional reports</b>
 </p>
 
 <p align="center">
-  A biomedical AI system that leverages BioGPT to predict drug–drug interactions
-  and generate clinically meaningful, explainable summaries.
+  <i>Research prototype — not medical advice and not a substitute for a pharmacist or a licensed interaction database.</i>
 </p>
 
 ---
 
-## 🔬 Project Overview
+## What it does
 
-**BioGPT-DDI** is a biomedical natural language processing (NLP) project that applies a  
-**domain-specific large language model (BioGPT)** to the task of **drug–drug interaction (DDI) prediction**.
+Given two medicines (generic names, brand names, salts, doses or combination products), BioGPT-DDI:
 
-Drug–drug interactions are a major cause of adverse drug reactions and clinical complications.
-Most existing systems rely on static databases and predefined rules, which limits their ability
-to adapt to new findings in biomedical literature.
+1. **Normalises** the input to active ingredients: `Coumadin` → warfarin, `Percocet` → oxycodone + acetaminophen,
+   `Metoprolol tartrate 50 mg` → metoprolol. Optionally, names that aren't in the local lexicon are looked up in NLM RxNorm.
+   Typos are **never** auto-corrected; the user gets "did you mean…" suggestions instead.
+2. **Checks curated rules** taken from product labelling and FDA Drug Safety Communications. Each rule carries the
+   mechanism, clinical effect, management and sources.
+3. **Runs a mechanism engine** for pairs with no curated rule:
+   - **Pharmacokinetic:** CYP3A4, 2C9, 2C19, 2D6 and 1A2, plus P-gp inhibition and induction graded by the FDA
+     index-drug classification (strong/moderate/weak × sensitive/moderate substrate, with narrow-therapeutic-index
+     escalation) and prodrug activation loss.
+   - **Pharmacodynamic:** serotonin toxicity (MAOI → contraindicated), QT/TdP, opioid and CNS depression, bleeding,
+     hyperkalaemia, dual RAAS blockade, NSAID nephrotoxicity, hypotension, bradycardia/AV block, hypoglycaemia with
+     alcohol, chelation.
+4. **Builds reports only from those findings**, so the explanation can never contradict the severity.
 
-This project demonstrates how **biomedical language models** can be used to:
-- understand pharmacological context
-- reason about drug relationships
-- generate human-readable clinical explanations
+Every result has an explicit status:
 
----
+| Status | Severity | Meaning |
+|---|---|---|
+| `interaction_found` | Contraindicated / Major / Moderate / Minor | One or more findings, each with an evidence level and sources |
+| `no_known_interaction` | None known | Both drugs are profiled and no interaction was found. **This does not mean the combination is safe.** |
+| `unrecognized_drug` | Unknown | Input could not be identified; suggestions are returned |
+| `insufficient_data` | Unknown | Recognised by RxNorm but not profiled in the knowledge base |
 
-## 🧠 What This Project Does
+### Example
 
-BioGPT-DDI focuses on two core capabilities:
+```bash
+curl -s localhost:8000/api/predict -H 'content-type: application/json' \
+  -d '{"drug1":"Coumadin","drug2":"Diflucan"}'
+```
 
-### 🔹 Drug–Drug Interaction Prediction
-Given two drug names, the system predicts whether an interaction exists and estimates
-the severity of the interaction using BioGPT’s biomedical language understanding.
-
-### 🔹 Explainable Clinical Report Generation
-Instead of returning only a label, the system generates a **natural-language explanation**
-describing the interaction, associated risks, and clinical implications.
-
-This improves interpretability and makes the output more useful for real-world biomedical scenarios.
-
----
-
-## 🧬 Why BioGPT?
-
-**BioGPT** is a transformer-based language model trained specifically on large-scale
-biomedical literature. Compared to general-purpose language models, BioGPT is better at:
-
-- understanding biomedical terminology
-- capturing pharmacological relationships
-- generating clinically coherent text
-
-Using a domain-trained model significantly improves the quality of both predictions
-and explanations in healthcare-related tasks.
+The result is **Major**, pharmacokinetic. Fluconazole inhibits CYP2C9, which clears S-warfarin, so INR and bleeding risk
+rise. Management: avoid the combination or check INR within 3–5 days and reduce the warfarin dose. Sources: the warfarin
+prescribing information and the FDA CYP table.
 
 ---
 
-## 🏗️ Current Architecture
+## Architecture
 
-This version of the project is implemented as a **simple web-based system**, focusing on
-model integration and explainability rather than distributed or cloud infrastructure.
+```
+src/                     React UI (analyzer, patient/professional tabs, PDF download)
+api/index.py             FastAPI app: /api/predict, /api/regimen, /api/generate-pdf, /api/health
+api/ddi/lexicon.py       ~230 ingredient profiles (classes, PD flags, CYP/P-gp roles, NTI) + ~340 brand/synonym entries
+api/ddi/normalize.py     name → ingredient resolution (local first, optional RxNav fallback)
+api/ddi/rules.py         curated, source-attributed rules
+api/ddi/engine.py        curated + mechanism engine, severity aggregation, regimen (polypharmacy) screen
+api/ddi/reports.py       grounded patient / professional text
+api/ddi/biogpt.py        optional, labelled BioGPT literature-style context (off by default)
+api/utils/pdf_generator.py  PDF reports (server re-derives the analysis; input is escaped)
+tests/                   clinical regression gold set, KB integrity, normalisation, API and PDF tests
+```
 
-- **Frontend**  
-  A web interface for entering drug names and viewing predictions.
+### Where BioGPT fits
 
-- **Backend API**  
-  Handles inference requests and communicates with the BioGPT model.
-
-- **Language Model**  
-  BioGPT is used for both interaction prediction and explanation generation.
-
----
-
-## 📁 Project Structure
-
-- **api/**  
-  Backend logic for handling requests, running the BioGPT model,
-  and returning predictions and explanations.
-
-- **src/**  
-  Frontend source code including UI components and application pages.
-
-- **public/**  
-  Static assets such as images or icons.
-
-- **package.json**  
-  Project dependencies and scripts.
-
-- **vercel.json**  
-  Deployment configuration for hosting the application.
+[BioGPT](https://github.com/microsoft/BioGPT) is a PubMed-trained generative model. It is not instruction-tuned, and
+when generating free text it can invent pharmacology. **It never decides or describes severity here.** If enabled
+(`BIOGPT_ENABLED=true` and `HF_API_TOKEN`), it continues the already-documented mechanism, and the output is returned
+separately as `literature_context` with an "unverified" label. Its documented strength is biomedical relation
+extraction, which the roadmap below uses for literature mining.
 
 ---
 
-## ⚙️ How the System Works
+## Running locally
 
-1. The user enters two drug names through the web interface.  
-2. The frontend sends the drug pair to the backend API.  
-3. The backend processes the input using the BioGPT model.  
-4. The model predicts a possible interaction and generates an explanation.  
-5. The result is returned and displayed on the user interface.
+```bash
+pip install -r api/requirements.txt -r requirements-dev.txt
+```
 
----
+```bash
+uvicorn api.index:app --reload --port 8000
+```
 
-## 🧪 Example
+```bash
+npm install && npm start
+```
 
-**Input**
-- Drug 1: Aspirin  
-- Drug 2: Warfarin  
+```bash
+python -m pytest -q
+```
 
-**Output**
-- **Interaction:** Severe  
-- **Explanation:**  
-  Aspirin may enhance the anticoagulant effect of Warfarin, increasing the risk of
-  bleeding and related complications.
+Environment variables:
 
----
-
-## 🎯 Use Cases
-
-- Academic and major projects in biomedical AI  
-- Biomedical NLP experimentation  
-- Learning how large language models can be applied to healthcare  
-- Prototyping early clinical decision-support systems  
+| Variable | Default | Purpose |
+|---|---|---|
+| `ALLOWED_ORIGINS` | `*` | Comma-separated CORS origins (credentials are never allowed) |
+| `DDI_ENABLE_RXNAV` | `true` | RxNorm lookup for names not in the local lexicon |
+| `BIOGPT_ENABLED` | `false` | Enable the experimental BioGPT literature context |
+| `HF_API_TOKEN` | — | Hugging Face token (only used if BioGPT is enabled) |
+| `BIOGPT_API_URL` | HF router URL for `microsoft/BioGPT-Large` | Override the inference endpoint |
 
 ---
 
-## 🔮 Future Improvements
+## Validation
 
-- Support for additional drug datasets  
-- Improved explanation formatting and readability  
-- Interaction confidence scoring  
-- Multi-drug interaction analysis  
-- UI/UX enhancements  
+`tests/test_clinical_regression.py` holds a gold set of documented interactions with their **minimum** expected
+severity, plus non-interacting pairs and nonsense inputs. CI runs it on every push. It includes the cases that
+version 1 got dangerously wrong:
+
+| Pair | v1 | v2 |
+|---|---|---|
+| Warfarin + Fluconazole | Minor | **Major** |
+| Linezolid + Sertraline | Minor | **Contraindicated** |
+| Tramadol + Sertraline | Minor | **Major** |
+| Clopidogrel + Omeprazole | Minor | **Major** |
+| Coumadin + Aspirin | Minor | **Major** |
+| Water + Sugar | Moderate | **Unknown** (unrecognised) |
+| "a" + "b" | Major | **Unknown** (unrecognised) |
+
+### Known limitations
+- The knowledge base covers about 230 common ingredients. Anything outside it is reported as unknown or "insufficient
+  data", never as safe.
+- Dose, renal and hepatic function, age and pharmacogenomics are not yet modelled.
+- Not clinically validated. Severity grading follows labelling where it exists, but can differ from commercial
+  compendia.
 
 ---
 
-## 📄 License
+## Roadmap
 
-This project is licensed under the **MIT License**.
+- **Phase 1 – evidence layer:** ingest DDInter and DailyMed SPL Section 7; per-claim citations with links; a
+  polypharmacy UI on top of `/api/regimen`, with cumulative burden scores (QT, serotonergic, anticholinergic, CNS).
+- **Phase 2 – quantitative PK and patient context:** static mechanistic AUC-ratio prediction; eGFR and Child-Pugh
+  adjustments; CPIC-based drug–drug–gene interactions, including phenoconversion.
+- **Phase 3 – learned layer:** a graph/molecular model for pairs not in the knowledge base, evaluated on drug-level
+  cold-start splits with conformal prediction. Its output is labelled "predicted – not documented" and may only
+  *raise* concern.
+- **Phase 4 – living knowledge:** BioGPT relation extraction over new PubMed abstracts plus FAERS disproportionality
+  signals, feeding a pharmacist review queue; clinician evaluation study; FHIR / CDS Hooks interface.
 
 ---
 
-## 🙌 Acknowledgements
+## License
 
-- **BioGPT** by Microsoft Research  
-- Biomedical datasets such as DrugBank and TWOSIDES  
-- Open-source NLP and AI research community
+MIT. Product names are trademarks of their respective owners and are used only for identification.
+
+## Acknowledgements
+
+- **BioGPT** by Microsoft Research
+- U.S. FDA drug-interaction tables and Drug Safety Communications; NLM RxNorm / RxNav
+- CredibleMeds (QT risk classification), CPIC / PharmGKB (planned)
