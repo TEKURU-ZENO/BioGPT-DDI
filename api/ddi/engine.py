@@ -12,9 +12,9 @@ base", which is not the same as "safe".
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from itertools import combinations
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 from . import evidence
 from . import learned, pk_model
@@ -292,8 +292,50 @@ def _pd_findings(x: DrugProfile, y: DrugProfile) -> List[Finding]:
             "These are both anti-inflammatory painkillers; taking two together increases side effects without "
             "extra benefit.", BLEED_WATCH, ("NSAID US Prescribing Information",))
 
+    # seizure threshold
+    if _either(x, y, "aminoketone", "seizure_threshold") and not (x.has("aminoketone") and y.has("aminoketone")):
+        add(MAJOR, PD, "seizure", "Bupropion with another drug that lowers the seizure threshold",
+            "Bupropion causes dose-related seizures; the other drug also lowers the seizure threshold.",
+            "Increased risk of seizures.",
+            "Use with extreme caution: lowest bupropion dose, slow titration; avoid in patients with other seizure "
+            "risk factors.",
+            "Together these increase the risk of seizures.",
+            ("seizures or fits", "confusion"), ("Wellbutrin (bupropion) US Prescribing Information, Section 5",))
+    elif x.has("seizure_threshold") and y.has("seizure_threshold"):
+        add(MODERATE, PD, "seizure", "Additive lowering of the seizure threshold",
+            "Both drugs lower the seizure threshold.",
+            "Increased seizure risk, especially at high doses or with other risk factors.",
+            "Use the lowest effective doses and monitor patients with seizure risk factors.",
+            "Together these can slightly increase the risk of seizures.",
+            ("seizures or fits",), ("Product labeling (seizure warnings)",))
+
+    # alcohol with CNS-active drugs that are not sedatives
+    if _either(x, y, "alcohol", ("ssri", "snri", "aminoketone", "antiepileptic", "antipsychotic")) and not \
+            (x.has("cns_depressant") and y.has("cns_depressant")):
+        add(MODERATE, PD, "alcohol_cns", "Alcohol with a CNS-active medicine",
+            "Additive effects on the central nervous system (and, with bupropion, a lower seizure threshold).",
+            "Impaired judgement and psychomotor performance; worsening of depression or seizure control.",
+            "Advise avoiding or minimising alcohol.",
+            "Avoid alcohol with this medicine; it can worsen side effects and make the medicine work less well.",
+            ("unusual drowsiness or confusion",), ("Product labeling (alcohol warnings)",))
+    if _either(x, y, "alcohol", ("nitrate", "alpha_blocker", "pde5_inhibitor")):
+        add(MODERATE, PD, "alcohol_bp", "Alcohol with a vasodilator",
+            "Additive vasodilation.",
+            "Orthostatic hypotension, dizziness and fainting.",
+            "Advise limiting alcohol and rising slowly.",
+            "Alcohol can make this medicine lower your blood pressure too much.",
+            ("dizziness or fainting",), ("Nitrate and alpha-blocker US Prescribing Information",))
+
     # potassium
-    if _either(x, y, "k_sparing", "potassium"):
+    if _either(x, y, "calcineurin_inhibitor", "k_sparing"):
+        add(MAJOR, PD, "potassium", "Hyperkalaemia: calcineurin inhibitor with a potassium-sparing diuretic",
+            "Calcineurin inhibitors reduce renal potassium excretion; potassium-sparing diuretics add to this.",
+            "Severe hyperkalaemia.",
+            "Avoid the combination (tacrolimus label); if unavoidable, monitor potassium closely.",
+            "Together these can raise potassium in your blood to dangerous levels.",
+            ("muscle weakness", "slow or irregular heartbeat"),
+            ("Prograf (tacrolimus) US Prescribing Information, Section 7",))
+    elif _either(x, y, "k_sparing", "potassium"):
         add(MAJOR, PD, "potassium", "Hyperkalaemia: potassium-sparing diuretic with potassium supplement",
             "Reduced renal potassium excretion combined with potassium loading.",
             "Severe hyperkalaemia and cardiac arrhythmia.",

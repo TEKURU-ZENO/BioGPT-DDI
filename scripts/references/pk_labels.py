@@ -42,13 +42,44 @@ _NAMES.update({k: v for k, v in SYNONYMS.items() if isinstance(v, str) and len(k
 _NAME_RE = re.compile(r"(?<![\w-])(" + "|".join(sorted(map(re.escape, _NAMES), key=len, reverse=True)) + r")(?![\w-])",
                       re.I)
 _FOLD = re.compile(r"(\d+(?:\.\d+)?)\s*-?\s*(?:fold|times)", re.I)
-_PCT = re.compile(r"\bby\s+(?:approximately|about|~|up to|a mean of)?\s*(\d+(?:\.\d+)?)\s*%", re.I)
+_PCT = re.compile(r"(\d+(?:\.\d+)?)\s*%", re.I)
 _DECREASE = re.compile(r"\b(decreas\w*|reduc\w*|lower\w*)\b", re.I)
 _INCREASE = re.compile(r"\b(increas\w*|rais\w*|elevat\w*|higher)\b", re.I)
 
 
 def sentences(text: str) -> List[str]:
     return [s.strip() for s in re.split(r"(?<=[.;])\s+(?=[A-Z(])", text) if s.strip()]
+
+
+def _magnitude(sent: str, auc_pos: int):
+    """The fold/percent value closest to the AUC mention (after it within 140 chars, or before within 60).
+
+    Values attached to other parameters ("Cmax by 46%") are skipped when an AUC value is available, because the
+    closest match to the AUC token wins.
+    """
+    best = None
+    for kind, rx in (("fold", _FOLD), ("pct", _PCT)):
+        for m in rx.finditer(sent):
+            if kind == "pct" and re.match(r"%?\s*(ci\b|confidence|prediction interval)", sent[m.end():m.end() + 25].lstrip("%").strip(), re.I):
+                continue  # "(90% CI: ...)" is a confidence level, not an exposure change
+            d = m.start() - auc_pos
+            if -60 <= d <= 140:
+                dist = abs(d)
+                if best is None or dist < best[0]:
+                    best = (dist, float(m.group(1)), kind, m.start())
+    return best[1:] if best else None
+
+
+def _direction(sent: str, pos: int):
+    """True for a decrease, False for an increase, None if no direction word is near the magnitude."""
+    window_start = max(0, pos - 80)
+    cands = []
+    for rx, is_dec in ((_DECREASE, True), (_INCREASE, False)):
+        for m in rx.finditer(sent, window_start, min(len(sent), pos + 40)):
+            if re.search(r"\b(not|no)\s+\w*\s*$", sent[max(0, m.start() - 12):m.start()]):
+                continue  # "did not decrease"
+            cands.append((abs(m.start() - pos), is_dec))
+    return min(cands)[1] if cands else None
 
 
 def extract(text: str, label_drug: str) -> List[dict]:
@@ -66,16 +97,17 @@ def extract(text: str, label_drug: str) -> List[dict]:
         if len(others) != 1:  # ambiguous or no co-administered drug named
             continue
         other = others[0]
-        tail = sent[auc.start():]
-        fold, pct = _FOLD.search(tail), _PCT.search(tail)
-        if not fold and not pct:
+        mag = _magnitude(sent, auc.start())
+        if not mag:
             continue
-        decrease = bool(_DECREASE.search(sent)) and not _INCREASE.search(sent[:auc.start()] + tail[:40])
-        if fold:
-            v = float(fold.group(1))
-            aucr = 1 / v if decrease else v
+        value, kind, pos = mag
+        decrease = _direction(sent, pos)
+        if decrease is None:
+            continue
+        if kind == "fold":
+            aucr = 1 / value if decrease else value
         else:
-            p = float(pct.group(1)) / 100
+            p = value / 100
             aucr = 1 - p if decrease else 1 + p
         if aucr <= 0:
             continue

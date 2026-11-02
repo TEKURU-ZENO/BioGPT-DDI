@@ -2,7 +2,6 @@ import math
 from pathlib import Path
 
 import httpx
-import pytest
 
 from pipelines import faers, literature
 

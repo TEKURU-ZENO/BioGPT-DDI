@@ -11,7 +11,7 @@ ingredient carrying that tag in :mod:`api.ddi.lexicon`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Tuple
 
 CONTRAINDICATED, MAJOR, MODERATE, MINOR = "Contraindicated", "Major", "Moderate", "Minor"
@@ -364,4 +364,83 @@ CURATED: List[Rule] = [
       "This medicine can stop your birth control pill from working. Use another method of contraception.",
       ("breakthrough bleeding",), ("FSRH Clinical Guidance: Drug interactions with hormonal contraception",
                                    SRC_FDA_CYP), ("pk",)),
+    # ------------------------------------------------------------------ added after independent validation run 1
+    R("posaconazole", "atorvastatin", CONTRAINDICATED, PK,
+      "Contraindicated: posaconazole with atorvastatin",
+      "Posaconazole is a strong CYP3A4 inhibitor; atorvastatin is primarily metabolised by CYP3A4.",
+      "Increased atorvastatin exposure with risk of myopathy and rhabdomyolysis.",
+      "Contraindicated per the posaconazole label. Withhold atorvastatin during posaconazole therapy or use a statin "
+      "not dependent on CYP3A4 (e.g., pravastatin, rosuvastatin).",
+      "This antifungal can raise atorvastatin to levels that damage muscles. Do not take them together.",
+      ("unexplained muscle pain, tenderness or weakness", "dark urine"),
+      ("Noxafil (posaconazole) US Prescribing Information, Section 4: Contraindications",), ("pk", "myopathy")),
+    R("ritonavir", ("amiodarone", "dronedarone", "flecainide", "quinidine", "triazolam", "midazolam",
+                    "st john's wort"), CONTRAINDICATED, PK,
+      "Contraindicated with ritonavir",
+      "Ritonavir strongly inhibits CYP3A4 (and CYP2D6 for flecainide); St John's wort induces CYP3A4 and P-gp and "
+      "lowers ritonavir exposure.",
+      "Arrhythmia (antiarrhythmics), prolonged or increased sedation and respiratory depression (oral midazolam, "
+      "triazolam), or loss of antiretroviral efficacy and resistance (St John's wort).",
+      "Contraindicated per the ritonavir label (parenteral midazolam only with close monitoring and dose "
+      "adjustment).",
+      "These must not be taken with ritonavir. Talk to your HIV or infectious-disease specialist.",
+      ("palpitations or fainting", "extreme sleepiness or slow breathing"),
+      ("Norvir (ritonavir) US Prescribing Information, Section 4: Contraindications",), ("pk",)),
+    R("dronedarone", ("ketoconazole", "itraconazole", "voriconazole", "clarithromycin", "ritonavir",
+                      "cobicistat", "cyclosporine"), CONTRAINDICATED, PK,
+      "Contraindicated: dronedarone with strong CYP3A inhibitors",
+      "Dronedarone is a sensitive CYP3A4 substrate; strong CYP3A inhibitors raise its exposure many-fold.",
+      "QT prolongation and arrhythmia.",
+      "Contraindicated per the dronedarone label.",
+      "These must not be taken together because they can cause dangerous heart rhythm problems.",
+      ("fainting", "palpitations"), ("Multaq (dronedarone) US Prescribing Information, Section 4",), ("pk", "qt")),
+    R("ticagrelor", ("ketoconazole", "itraconazole", "voriconazole", "posaconazole", "clarithromycin",
+                     "ritonavir", "cobicistat"), MAJOR, PK,
+      "Avoid: ticagrelor with strong CYP3A inhibitors",
+      "Ticagrelor is metabolised by CYP3A4; strong inhibitors substantially increase ticagrelor exposure.",
+      "Increased bleeding risk.",
+      "Avoid concomitant use (ticagrelor label).",
+      "This medicine can raise ticagrelor levels and increase bleeding risk.",
+      BLEED_WATCH, ("Brilinta (ticagrelor) US Prescribing Information, Section 7",), ("pk",)),
+    R("ticagrelor", ("rifampin", "carbamazepine", "phenytoin", "phenobarbital"), MAJOR, PK,
+      "Avoid: ticagrelor with strong CYP3A inducers",
+      "Strong CYP3A induction substantially lowers ticagrelor exposure.",
+      "Reduced antiplatelet effect and risk of stent thrombosis or recurrent ischaemic events.",
+      "Avoid concomitant use (ticagrelor label).",
+      "This medicine can stop ticagrelor from working properly.",
+      ("chest pain", "sudden weakness or trouble speaking"),
+      ("Brilinta (ticagrelor) US Prescribing Information, Section 7",), ("pk",)),
+    R("riociguat", ("dipyridamole", "theophylline"), CONTRAINDICATED, PD,
+      "Contraindicated: riociguat with nonspecific PDE inhibitors",
+      "Additive stimulation of the NO-sGC-cGMP pathway (nonspecific phosphodiesterase inhibition).",
+      "Hypotension.",
+      "Contraindicated per the riociguat label.",
+      "These must not be taken together because blood pressure can drop dangerously.",
+      ("dizziness or fainting",), ("Adempas (riociguat) US Prescribing Information, Section 4",), ("hypotension",)),
+    R("aliskiren", ("cyclosporine", "itraconazole"), MAJOR, PK,
+      "Avoid: aliskiren with cyclosporine or itraconazole",
+      "Inhibition of P-glycoprotein (and OATP) markedly increases aliskiren exposure.",
+      "Increased aliskiren effects: hypotension, hyperkalaemia, renal impairment.",
+      "Avoid concomitant use (aliskiren label).",
+      "This medicine can raise aliskiren to unsafe levels.",
+      ("dizziness or fainting", "muscle weakness"), ("Tekturna (aliskiren) US Prescribing Information, Section 7",),
+      ("pk",)),
+    R("acetaminophen", "alcohol", MODERATE, PD,
+      "Acetaminophen with regular alcohol use",
+      "Chronic alcohol use induces CYP2E1 and depletes glutathione, increasing formation and reducing detoxification "
+      "of the hepatotoxic metabolite NAPQI.",
+      "Increased risk of severe liver injury.",
+      "Advise against 3 or more alcoholic drinks per day while using acetaminophen; keep within the maximum daily "
+      "dose.",
+      "Drinking alcohol regularly while taking acetaminophen (paracetamol) can damage your liver.",
+      ("yellowing of the skin or eyes", "dark urine", "pain in the upper right abdomen"),
+      ("Acetaminophen OTC Drug Facts label: liver warning",), ()),
+    R("methotrexate", "aspirin", MODERATE, PK, "Methotrexate with aspirin",
+      "Salicylates reduce renal methotrexate clearance and displace it from plasma proteins.",
+      "Increased methotrexate toxicity, particularly with analgesic/anti-inflammatory aspirin doses or high-dose "
+      "methotrexate.",
+      "Low-dose aspirin with low-dose weekly methotrexate is generally acceptable with monitoring; avoid analgesic "
+      "doses with high-dose methotrexate.",
+      "Aspirin can raise methotrexate levels; your doctor may monitor blood tests.",
+      ("mouth ulcers", "fever", "unusual bruising"), ("Methotrexate US Prescribing Information",), ()),
 ]

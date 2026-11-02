@@ -25,7 +25,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from api.ddi.engine import SEVERITY_RANK, analyze_resolved
 from api.ddi.normalize import ResolvedDrug, resolve

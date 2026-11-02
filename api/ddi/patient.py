@@ -119,7 +119,7 @@ def renal_alerts(profiles: Sequence[DrugProfile], egfr: float) -> List[dict]:
     alerts: List[dict] = []
     for p in {x.name: x for x in profiles}.values():
         rules = sorted((r for r in _RENAL if r[0] == p.name), key=lambda r: r[1])
-        for name, below, level, msg, crcl in rules:  # most severe threshold that applies wins
+        for _name, below, level, msg, crcl in rules:  # most severe threshold that applies wins
             if egfr < below:
                 alerts.append({"category": "renal", "level": level, "drug": p.name.title(),
                                "title": f"{p.name.title()}: renal dose check (eGFR {egfr:g})",

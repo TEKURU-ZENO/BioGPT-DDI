@@ -83,7 +83,7 @@ def main(argv=None) -> int:
                 d_of[d] = name
             time.sleep(args.sleep)
         print(f"mapped {len(d_of)}/{len(names)} ingredients to KEGG D numbers", file=sys.stderr)
-        for d, name in sorted(d_of.items()):
+        for d in sorted(d_of):
             try:
                 r = client.get(f"{BASE}/ddi/{d}")
             except httpx.HTTPError as exc:

@@ -28,7 +28,6 @@ import argparse
 import json
 import math
 import os
-import sys
 from dataclasses import dataclass
 from typing import Optional
 

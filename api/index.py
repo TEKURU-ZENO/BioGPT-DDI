@@ -154,7 +154,7 @@ async def predict_interaction(request: PredictionRequest):
         return result
     except Exception:
         logger.exception("prediction failed")
-        raise HTTPException(status_code=500, detail="Analysis failed due to an internal error. Please try again.")
+        raise HTTPException(status_code=500, detail="Analysis failed due to an internal error. Please try again.") from None
 
 
 @app.post("/api/regimen")
@@ -164,7 +164,7 @@ def check_regimen(request: RegimenRequest):
         return analyze_regimen(request.drugs, patient)
     except Exception:
         logger.exception("regimen check failed")
-        raise HTTPException(status_code=500, detail="Regimen analysis failed due to an internal error.")
+        raise HTTPException(status_code=500, detail="Regimen analysis failed due to an internal error.") from None
 
 
 def _safe_filename(text: str) -> str:
@@ -181,7 +181,7 @@ def generate_pdf_report(request: PDFRequest):
             buffer = pdf_generator.generate_professional_report(result)
     except Exception:
         logger.exception("pdf generation failed")
-        raise HTTPException(status_code=500, detail="PDF generation failed due to an internal error.")
+        raise HTTPException(status_code=500, detail="PDF generation failed due to an internal error.") from None
 
     filename = (f"DDI_Report_{request.report_type.title()}_"
                 f"{_safe_filename(request.drug1)}_{_safe_filename(request.drug2)}.pdf")

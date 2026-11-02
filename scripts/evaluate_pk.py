@@ -107,7 +107,9 @@ def evaluate(rows: List[dict], holdout_seed: Optional[int] = None) -> Dict[str, 
         scored = [r for r in recs if r["est"]]
         fe = [r["est"]["auc_ratio"] / r["observed"] for r in scored]
         absl = [abs(math.log10(x)) for x in fe]
-        within = lambda f: sum(1 / f <= x <= f for x in fe) / len(fe) if fe else float("nan")
+        def within(f: float, fe: List[float] = fe) -> float:
+            return sum(1 / f <= x <= f for x in fe) / len(fe) if fe else float("nan")
+
         in_range = [r["est"]["auc_ratio_range"][0] <= r["observed"] <= r["est"]["auc_ratio_range"][1] for r in scored]
         cat = [category(r["est"]["auc_ratio"]) == category(r["observed"]) for r in scored]
         scored.sort(key=lambda r: -abs(math.log(r["est"]["auc_ratio"] / r["observed"])))

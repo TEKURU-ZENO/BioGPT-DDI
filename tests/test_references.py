@@ -111,3 +111,18 @@ def test_pk_table_column_matching(tmp_path):
     assert skipped == 1 and rows[0]["observed_aucr"] == 10.8 and rows[0]["source_id"] == "123"
     with pytest.raises(ValueError):
         pk_table.convert([], ["a", "b"], "x")
+
+
+@pytest.mark.parametrize("text,label,expected", [
+    ("Coadministration with verapamil resulted in a 2.2-fold higher sirolimus AUC, while verapamil clearance "
+     "decreased.", "sirolimus", 2.2),                                     # magnitude before "AUC"
+    ("Verapamil decreased the oral clearance of sirolimus, and sirolimus AUC increased 2.2-fold.", "sirolimus", 2.2),
+    ("Ketoconazole increased the mean AUC of tadalafil by 312% but did not decrease clearance.", "tadalafil", 4.12),
+    ("Fluconazole caused a 1.5-fold decrease in the clearance and increased the AUC of triazolam 2.5-fold.",
+     "triazolam", 2.5),                                                   # nearest magnitude to AUC wins
+    ("With ketoconazole, the AUC ratio of tadalafil was 4.1 (90% CI: 3.5, 4.8), a 4.1-fold increase.",
+     "tadalafil", 4.1),                                                   # confidence level is not a change
+])
+def test_label_pk_direction_and_magnitude(text, label, expected):
+    rows = pk_labels.extract(text, label)
+    assert rows and abs(rows[0]["observed_aucr"] - expected) < 0.01

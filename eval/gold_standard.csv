@@ -77,3 +77,14 @@ a,b,unrecognized,,nonsense or misspelled input
 in,a,unrecognized,,nonsense or misspelled input
 Warfrin,Aspirin,unrecognized,,nonsense or misspelled input
 xyzzy,Warfarin,unrecognized,,nonsense or misspelled input
+Posaconazole,Atorvastatin,interaction,Contraindicated,posaconazole label section 4 (added after validation run 1)
+Ritonavir,Amiodarone,interaction,Contraindicated,ritonavir label section 4 (added after validation run 1)
+Clarithromycin,Dronedarone,interaction,Contraindicated,dronedarone label section 4 (added after validation run 1)
+Ticagrelor,Clarithromycin,interaction,Major,ticagrelor label: avoid strong CYP3A inhibitors (added after validation run 1)
+Ticagrelor,Rifampin,interaction,Major,ticagrelor label: avoid strong CYP3A inducers (added after validation run 1)
+Riociguat,Dipyridamole,interaction,Contraindicated,riociguat label section 4 (added after validation run 1)
+Aliskiren,Cyclosporine,interaction,Major,aliskiren label: avoid (added after validation run 1)
+Tacrolimus,Amiloride,interaction,Major,tacrolimus label: avoid potassium-sparing diuretics (added after validation run 1)
+Bupropion,Tramadol,interaction,Major,bupropion label: seizure threshold (added after validation run 1)
+Acetaminophen,Alcohol,interaction,Moderate,acetaminophen liver warning (added after validation run 1)
+Methotrexate,Aspirin,interaction,Moderate,methotrexate label: salicylates (added after validation run 1)

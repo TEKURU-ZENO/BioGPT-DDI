@@ -77,3 +77,24 @@ it is probably an extraction error.
   structure (`--debug`) so the live layout can be checked.
 - The evaluator now reports coverage excluding "Unknown"-severity records, and prints kappa as n/a when a
   reference has a single grade.
+
+### Changes made in response to run 1 (measured from run 3 onwards)
+
+These cover misses where the **US label** is explicit. KEGG findings that reflect only Japanese labelling were not
+adopted.
+
+- **Contraindicated:** posaconazole + atorvastatin; ritonavir + amiodarone, dronedarone, flecainide, quinidine,
+  triazolam, midazolam or St John's wort; dronedarone + strong CYP3A inhibitors; riociguat + dipyridamole or
+  theophylline.
+- **Major ("avoid"):** ticagrelor + strong CYP3A inhibitors or inducers; aliskiren + cyclosporine or itraconazole;
+  calcineurin inhibitor + potassium-sparing diuretic; bupropion + other seizure-threshold-lowering drugs.
+- **Moderate:**
+  - acetaminophen + regular alcohol
+  - methotrexate + aspirin
+  - alcohol + CNS-active non-sedatives (SSRIs, SNRIs, bupropion, antiepileptics, antipsychotics)
+  - alcohol + vasodilators
+  - additive seizure-threshold lowering
+- **Tags:** calcineurin inhibitors now carry potassium retention, so they are caught by the RAAS hyperkalaemia rule.
+- **FDA-label AUC extractor:** the magnitude is now the one nearest the "AUC" mention (before or after it), the
+  direction comes from the verb nearest that magnitude, and confidence-level percents ("90% CI") are ignored. Run 1
+  missed "2.2-fold higher … AUC" phrasing and could mis-assign direction.
