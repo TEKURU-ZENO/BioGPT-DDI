@@ -1,0 +1,79 @@
+drug1,drug2,expected,min_severity,note
+Warfarin,Fluconazole,interaction,Major,CYP2C9 inhibition; warfarin label
+Linezolid,Sertraline,interaction,Contraindicated,MAOI + SSRI; FDA DSC 2011
+Tramadol,Sertraline,interaction,Major,serotonin syndrome/seizures; tramadol label
+Fluoxetine,Tramadol,interaction,Major,serotonin syndrome/seizures; tramadol label
+Clopidogrel,Omeprazole,interaction,Major,CYP2C19 prodrug activation; FDA DSC 2009/2010
+Coumadin,Aspirin,interaction,Major,additive bleeding; warfarin label
+Sildenafil,Nitroglycerin,interaction,Contraindicated,
+Viagra,Isosorbide mononitrate,interaction,Contraindicated,
+Tadalafil,Riociguat,interaction,Contraindicated,
+Simvastatin,Clarithromycin,interaction,Contraindicated,
+Lovastatin,Itraconazole,interaction,Contraindicated,
+Simvastatin,Gemfibrozil,interaction,Contraindicated,
+Phenelzine,Fluoxetine,interaction,Contraindicated,
+Selegiline,Meperidine,interaction,Contraindicated,
+Tizanidine,Ciprofloxacin,interaction,Contraindicated,
+Tizanidine,Fluvoxamine,interaction,Contraindicated,
+Entresto,Lisinopril,interaction,Contraindicated,
+Repaglinide,Gemfibrozil,interaction,Contraindicated,
+Bupropion,Phenelzine,interaction,Contraindicated,
+Warfarin,Ibuprofen,interaction,Major,
+Warfarin,Metronidazole,interaction,Major,
+Warfarin,Bactrim,interaction,Major,
+Warfarin,Amiodarone,interaction,Major,
+Warfarin,Rifampin,interaction,Major,
+Apixaban,Ketoconazole,interaction,Major,
+Rivaroxaban,Rifampin,interaction,Major,
+Apixaban,Aspirin,interaction,Major,
+Oxycodone,Alprazolam,interaction,Major,
+Morphine,Gabapentin,interaction,Major,
+Fentanyl,Alcohol,interaction,Major,
+Lorazepam,Alcohol,interaction,Major,
+Metoprolol,Verapamil,interaction,Major,
+Digoxin,Amiodarone,interaction,Major,
+Digoxin,Verapamil,interaction,Major,
+Lithium,Hydrochlorothiazide,interaction,Major,
+Lithium,Ibuprofen,interaction,Major,
+Lithium,Lisinopril,interaction,Major,
+Spironolactone,Potassium chloride,interaction,Major,
+Lisinopril,Losartan,interaction,Major,
+Theophylline,Ciprofloxacin,interaction,Major,
+Clozapine,Fluvoxamine,interaction,Major,
+Tacrolimus,Ketoconazole,interaction,Major,
+Tacrolimus,Rifampin,interaction,Major,
+Cyclosporine,St John's Wort,interaction,Major,
+Colchicine,Clarithromycin,interaction,Major,
+Methotrexate,Trimethoprim,interaction,Major,
+Azathioprine,Allopurinol,interaction,Major,
+Lamotrigine,Valproate,interaction,Major,
+Tamoxifen,Paroxetine,interaction,Major,
+Azithromycin,Amiodarone,interaction,Major,
+Citalopram,Ondansetron,interaction,Major,
+Metronidazole,Alcohol,interaction,Major,
+Birth control pill,Rifampin,interaction,Major,
+Carbamazepine,Verapamil,interaction,Major,
+Tylenol,Percocet,interaction,Major,
+Sertraline,Ibuprofen,interaction,Moderate,
+Aspirin,Clopidogrel,interaction,Moderate,
+Lisinopril,Ibuprofen,interaction,Moderate,
+Lisinopril,Spironolactone,interaction,Moderate,
+Ciprofloxacin,Calcium carbonate,interaction,Moderate,
+Levothyroxine,Iron,interaction,Moderate,
+Simvastatin,Amlodipine,interaction,Moderate,
+Simvastatin,Diltiazem,interaction,Moderate,
+Sumatriptan,Sertraline,interaction,Moderate,
+Glipizide,Alcohol,interaction,Moderate,
+Metformin,Alcohol,interaction,Moderate,
+Codeine,Paroxetine,interaction,Moderate,
+Sildenafil,Doxazosin,interaction,Moderate,
+Amoxicillin,Ibuprofen,none_known,,no clinically significant interaction expected
+Pantoprazole,Clopidogrel,none_known,,no clinically significant interaction expected
+Metformin,Atorvastatin,none_known,,no clinically significant interaction expected
+Levothyroxine,Atorvastatin,none_known,,no clinically significant interaction expected
+Acetaminophen,Ascorbic acid,none_known,,no clinically significant interaction expected
+Water,Sugar,unrecognized,,nonsense or misspelled input
+a,b,unrecognized,,nonsense or misspelled input
+in,a,unrecognized,,nonsense or misspelled input
+Warfrin,Aspirin,unrecognized,,nonsense or misspelled input
+xyzzy,Warfarin,unrecognized,,nonsense or misspelled input

@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
+from api.cds_hooks import router as cds_router
 from api.ddi import biogpt, evidence, learned
 from api.ddi.engine import analyze_pair, analyze_regimen
 from api.ddi.lexicon import DRUGS, KB_VERSION
@@ -38,8 +39,9 @@ app.add_middleware(
     allow_origins=_origins,
     allow_credentials=False,  # no cookies/auth are used; never combine credentials with "*"
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],  # CDS Hooks clients send a JWT bearer token
 )
+app.include_router(cds_router, prefix="/api")
 
 pdf_generator = DDIReportGenerator()
 

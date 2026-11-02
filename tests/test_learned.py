@@ -8,9 +8,9 @@ unseen drugs, which is exactly what the cold splits test.
 import csv
 import itertools
 
-import numpy as np
 import pytest
 
+np = pytest.importorskip("numpy")
 pytest.importorskip("sklearn")
 pytest.importorskip("joblib")
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<!-- SYNTHETIC test abstracts with fake PMIDs. Not real publications; the levetiracetam/rosuvastatin
+     "interaction" is invented to exercise the novelty filter. -->
+<PubmedArticleSet>
+  <PubmedArticle><MedlineCitation><PMID>11111111</PMID><Article>
+    <ArticleTitle>Effect of fluvoxamine on tizanidine pharmacokinetics</ArticleTitle>
+    <Abstract><AbstractText>Fluvoxamine increased the AUC of tizanidine 33-fold, causing hypotension.</AbstractText></Abstract>
+    <Journal><JournalIssue><PubDate><Year>2024</Year></PubDate></JournalIssue></Journal>
+  </Article></MedlineCitation></PubmedArticle>
+  <PubmedArticle><MedlineCitation><PMID>22222222</PMID><Article>
+    <ArticleTitle>Rosuvastatin and levetiracetam</ArticleTitle>
+    <Abstract>
+      <AbstractText Label="RESULTS">Coadministration of levetiracetam increased rosuvastatin plasma concentrations and myopathy toxicity was observed.</AbstractText>
+      <AbstractText Label="CONCLUSIONS">Concomitant use should be monitored.</AbstractText>
+    </Abstract>
+  </Article></MedlineCitation></PubmedArticle>
+  <PubmedArticle><MedlineCitation><PMID>33333333</PMID><Article>
+    <ArticleTitle>Pantoprazole and clopidogrel</ArticleTitle>
+    <Abstract><AbstractText>Pantoprazole did not significantly alter clopidogrel exposure; no clinically significant interaction was found.</AbstractText></Abstract>
+  </Article></MedlineCitation></PubmedArticle>
+</PubmedArticleSet>

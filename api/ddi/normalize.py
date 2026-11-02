@@ -56,6 +56,7 @@ class ResolvedDrug:
 
 
 def _clean(text: str) -> str:
+    text = re.sub(r"\[[^\]]*\]", " ", text)  # RxNorm branded names: "... Oral Tablet [Coumadin]"
     text = text.lower().strip()
     text = text.replace("’", "'").replace("‘", "'")
     text = _ALLOWED_RE.sub(" ", text)

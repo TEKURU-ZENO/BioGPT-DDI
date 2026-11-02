@@ -153,6 +153,11 @@ function AnalyzerPage() {
             {result.status !== 'interaction_found' && (
               <div className={`status-note status-${result.status}`}>
                 <p>{result.message}</p>
+                {result.predicted_signals?.map((sig) => (
+                  <p key={sig.drugs.join('|')} className="finding-meta">
+                    <strong>{sig.label}</strong> ({sig.drugs.join(' + ')}, p={sig.probability}). {sig.note}
+                  </p>
+                ))}
                 {[1, 2].map((n) => {
                   const d = result[`drug${n}`];
                   if (!d || d.recognized || !d.suggestions?.length) return null;

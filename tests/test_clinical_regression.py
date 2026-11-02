@@ -1,98 +1,29 @@
 """Clinical regression gold set.
 
-Each case encodes the expected *minimum* severity for a well-documented
-interaction (or the expected non-interaction outcome). The first block holds
-cases the original rule-based classifier got dangerously wrong.
+Cases live in ``eval/gold_standard.csv`` (shared with ``scripts/evaluate.py``).
+Each encodes the expected *minimum* severity for a well-documented interaction,
+or the expected non-interaction / unrecognised-input outcome. The first rows
+are cases the original rule-based classifier got dangerously wrong.
 """
+
+import csv
+from pathlib import Path
 
 import pytest
 
 from api.ddi.engine import SEVERITY_RANK, analyze_pair
 
-AT_LEAST = [
-    # --- regressions from v1 (previously Minor / Moderate) ---
-    ("Warfarin", "Fluconazole", "Major"),
-    ("Linezolid", "Sertraline", "Contraindicated"),
-    ("Tramadol", "Sertraline", "Major"),
-    ("Fluoxetine", "Tramadol", "Major"),
-    ("Clopidogrel", "Omeprazole", "Major"),
-    ("Coumadin", "Aspirin", "Major"),
-    # --- contraindicated ---
-    ("Sildenafil", "Nitroglycerin", "Contraindicated"),
-    ("Viagra", "Isosorbide mononitrate", "Contraindicated"),
-    ("Tadalafil", "Riociguat", "Contraindicated"),
-    ("Simvastatin", "Clarithromycin", "Contraindicated"),
-    ("Lovastatin", "Itraconazole", "Contraindicated"),
-    ("Simvastatin", "Gemfibrozil", "Contraindicated"),
-    ("Phenelzine", "Fluoxetine", "Contraindicated"),
-    ("Selegiline", "Meperidine", "Contraindicated"),
-    ("Tizanidine", "Ciprofloxacin", "Contraindicated"),
-    ("Tizanidine", "Fluvoxamine", "Contraindicated"),
-    ("Entresto", "Lisinopril", "Contraindicated"),
-    ("Repaglinide", "Gemfibrozil", "Contraindicated"),
-    ("Bupropion", "Phenelzine", "Contraindicated"),
-    # --- major ---
-    ("Warfarin", "Ibuprofen", "Major"),
-    ("Warfarin", "Metronidazole", "Major"),
-    ("Warfarin", "Bactrim", "Major"),
-    ("Warfarin", "Amiodarone", "Major"),
-    ("Warfarin", "Rifampin", "Major"),
-    ("Apixaban", "Ketoconazole", "Major"),
-    ("Rivaroxaban", "Rifampin", "Major"),
-    ("Apixaban", "Aspirin", "Major"),
-    ("Oxycodone", "Alprazolam", "Major"),
-    ("Morphine", "Gabapentin", "Major"),
-    ("Fentanyl", "Alcohol", "Major"),
-    ("Lorazepam", "Alcohol", "Major"),
-    ("Metoprolol", "Verapamil", "Major"),
-    ("Digoxin", "Amiodarone", "Major"),
-    ("Digoxin", "Verapamil", "Major"),
-    ("Lithium", "Hydrochlorothiazide", "Major"),
-    ("Lithium", "Ibuprofen", "Major"),
-    ("Lithium", "Lisinopril", "Major"),
-    ("Spironolactone", "Potassium chloride", "Major"),
-    ("Lisinopril", "Losartan", "Major"),
-    ("Theophylline", "Ciprofloxacin", "Major"),
-    ("Clozapine", "Fluvoxamine", "Major"),
-    ("Tacrolimus", "Ketoconazole", "Major"),
-    ("Tacrolimus", "Rifampin", "Major"),
-    ("Cyclosporine", "St John's Wort", "Major"),
-    ("Colchicine", "Clarithromycin", "Major"),
-    ("Methotrexate", "Trimethoprim", "Major"),
-    ("Azathioprine", "Allopurinol", "Major"),
-    ("Lamotrigine", "Valproate", "Major"),
-    ("Tamoxifen", "Paroxetine", "Major"),
-    ("Azithromycin", "Amiodarone", "Major"),
-    ("Citalopram", "Ondansetron", "Major"),
-    ("Metronidazole", "Alcohol", "Major"),
-    ("Birth control pill", "Rifampin", "Major"),
-    ("Carbamazepine", "Verapamil", "Major"),
-    ("Tylenol", "Percocet", "Major"),
-    # --- moderate ---
-    ("Sertraline", "Ibuprofen", "Moderate"),
-    ("Aspirin", "Clopidogrel", "Moderate"),
-    ("Lisinopril", "Ibuprofen", "Moderate"),
-    ("Lisinopril", "Spironolactone", "Moderate"),
-    ("Ciprofloxacin", "Calcium carbonate", "Moderate"),
-    ("Levothyroxine", "Iron", "Moderate"),
-    ("Simvastatin", "Amlodipine", "Moderate"),
-    ("Simvastatin", "Diltiazem", "Moderate"),
-    ("Sumatriptan", "Sertraline", "Moderate"),
-    ("Glipizide", "Alcohol", "Moderate"),
-    ("Metformin", "Alcohol", "Moderate"),
-    ("Codeine", "Paroxetine", "Moderate"),
-    ("Sildenafil", "Doxazosin", "Moderate"),
-]
+GOLD = Path(__file__).resolve().parents[1] / "eval" / "gold_standard.csv"
+with GOLD.open(newline="", encoding="utf-8") as _fh:
+    _ROWS = list(csv.DictReader(_fh))
 
-NONE_KNOWN = [
-    ("Amoxicillin", "Ibuprofen"),
-    ("Pantoprazole", "Clopidogrel"),
-    ("Metformin", "Atorvastatin"),
-    ("Levothyroxine", "Atorvastatin"),
-    ("Acetaminophen", "Ascorbic acid"),
-]
+AT_LEAST = [(r["drug1"], r["drug2"], r["min_severity"]) for r in _ROWS if r["expected"] == "interaction"]
+NONE_KNOWN = [(r["drug1"], r["drug2"]) for r in _ROWS if r["expected"] == "none_known"]
+UNRECOGNIZED = [(r["drug1"], r["drug2"]) for r in _ROWS if r["expected"] == "unrecognized"]
 
-UNRECOGNIZED = [("Water", "Sugar"), ("a", "b"), ("in", "a"), ("Warfrin", "Aspirin"), ("xyzzy", "Warfarin")]
+
+def test_gold_standard_is_loaded():
+    assert len(AT_LEAST) >= 60 and NONE_KNOWN and UNRECOGNIZED
 
 
 @pytest.mark.parametrize("a,b,minimum", AT_LEAST)

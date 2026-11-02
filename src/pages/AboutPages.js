@@ -26,6 +26,15 @@ function AboutProjectPage() {
             toxicity, QT prolongation, CNS depression, bleeding and hyperkalaemia.
           </li>
           <li>
+            <strong>Exposure estimates</strong> – a static mechanistic model estimates how much an inhibitor or
+            inducer changes the other drug's exposure (AUC).
+          </li>
+          <li>
+            <strong>Patient context</strong> – kidney function (eGFR), age (Beers Criteria) and pharmacogenomics
+            (CPIC guidance for CYP2D6, CYP2C19 and CYP2C9), including phenoconversion: a co-prescribed inhibitor
+            can make a genetically normal metabolizer behave like a poor one.
+          </li>
+          <li>
             <strong>Grounded reports</strong> – patient and professional summaries are assembled only from those
             findings, so the explanation can never contradict the severity.
           </li>
@@ -36,11 +45,17 @@ function AboutProjectPage() {
           literature. In this project it is an optional, clearly labelled source of literature-style context and
           never decides severity. The roadmap uses it to mine PubMed for emerging interactions.
         </p>
+        <h3>Beyond the app</h3>
+        <p>
+          The project also includes a CDS Hooks service for EHR integration, pipelines that mine PubMed and FDA
+          adverse-event reports for emerging interactions (always routed to human review), and a research
+          pipeline for learned models with drug-level cold-start evaluation and conformal prediction.
+        </p>
         <h3>Limitations</h3>
         <p>
-          The knowledge base covers a curated set of about 230 common ingredients. It does not yet model dose, renal or hepatic
-          function, or pharmacogenomics. It has not been clinically validated and is not a substitute for a
-          pharmacist or a licensed interaction database.
+          The knowledge base covers a curated set of about 230 common ingredients. Exposure estimates are
+          class-level, and dose and liver function are not modelled. It has not been clinically validated and is
+          not a substitute for a pharmacist or a licensed interaction database.
         </p>
       </GlassCard>
     </div>

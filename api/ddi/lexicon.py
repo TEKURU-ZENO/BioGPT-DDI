@@ -438,4 +438,7 @@ SALT_WORDS = {
     "phosphate", "bromide", "acetate", "fumarate", "dihydrate", "trihydrate", "er", "xr", "sr", "cr",
     "xl", "la", "dr", "ec", "odt", "tablet", "tablets", "tab", "tabs", "capsule", "capsules", "cap",
     "oral", "injection", "solution", "suspension", "extended", "release", "delayed", "film", "coated",
+    "hr", "hour", "day", "chewable", "sublingual", "transdermal", "patch", "topical", "cream", "gel",
+    "injectable", "prefilled", "syringe", "pen", "vial", "inhaler", "metered", "dose", "actuat", "ml",
+    "disintegrating", "enteric", "product", "kit", "system",
 }
